@@ -10,10 +10,12 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@ai-cms/agents": "workspace:*",
     "@ai-cms/ai": "workspace:*",
     "@ai-cms/audit": "workspace:*",
     "@ai-cms/authz": "workspace:*",
     "@ai-cms/db": "workspace:*",
+    "@ai-cms/pipeline": "workspace:*",
     "drizzle-orm": "^0.45.3",
     "zod": "^4.6.5"
   }

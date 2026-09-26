@@ -7,6 +7,7 @@ const config: NextConfig = {
   output: 'standalone',
   outputFileTracingRoot: path.join(import.meta.dirname, '../..'),
   transpilePackages: [
+    '@ai-cms/agents',
     '@ai-cms/ai',
     '@ai-cms/ai-config',
     '@ai-cms/audit',
