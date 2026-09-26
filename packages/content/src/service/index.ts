@@ -25,3 +25,19 @@ export {
   type VersionInfo,
   type VersionRef,
 } from './versions.ts';
+export {
+  DEFAULT_LAYOUTS,
+  DEFAULT_MENU,
+  LAYOUTS_PATH,
+  MENUS_PATH,
+  SITE_SETTINGS_PATH,
+  ensureLayout,
+  ensureMenu,
+  ensureSharedNodes,
+  getLayout,
+  getMenu,
+  getSharedElements,
+  getSiteSettings,
+  type SharedElements,
+  type SharedReadOptions,
+} from './shared.ts';
