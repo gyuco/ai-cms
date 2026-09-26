@@ -14,6 +14,8 @@ export interface ConnectionView {
   hasKey: boolean;
   keyHint: string | null;
   lastTest: { model: string; ok: boolean; tools: boolean; at: string } | null;
+  /** Only for subscriptions; `linked` is `null` when the agent-runner did not answer (E8.9). */
+  subscription?: { linked: boolean | null };
 }
 
 export interface RoleAssignment {
@@ -109,7 +111,31 @@ export function rolesOf(roles: readonly RoleAssignment[], connectionId: string):
   return roles.filter((r) => r.connectionId === connectionId).map((r) => r.role);
 }
 
-/** The make target that links a user's Claude Code subscription (TECHNICAL §7.4). */
+/** What the agent-runner answered about the login of a subscription (E8.9). */
+export type SubscriptionState = 'linked' | 'not_linked' | 'unknown';
+
+/** Null for connections that are not subscriptions. */
+export function subscriptionState(
+  connection: Pick<ConnectionView, 'type' | 'subscription'>,
+): SubscriptionState | null {
+  if (connection.type !== 'subscription') return null;
+  const linked = connection.subscription?.linked;
+  return linked === true ? 'linked' : linked === false ? 'not_linked' : 'unknown';
+}
+
+export const SUBSCRIPTION_LABEL: Record<SubscriptionState, string> = {
+  linked: 'Abbonamento collegato',
+  not_linked: 'Abbonamento non collegato',
+  unknown: 'Collegamento non verificabile',
+};
+
+export const SUBSCRIPTION_TONE: Record<SubscriptionState, string> = {
+  linked: 'tone-ok',
+  not_linked: 'tone-error',
+  unknown: 'tone-off',
+};
+
+/** The command that links a user's Claude Code subscription (TECHNICAL §7.4). */
 export function connectCommand(username: string): string {
-  return `make connect-claude-code user=${username}`;
+  return `docker compose exec -it agent-runner cms-connect claude-code --user ${username}`;
 }

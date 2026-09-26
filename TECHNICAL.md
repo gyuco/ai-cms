@@ -95,9 +95,9 @@
 | Servizio | Ruolo | Reti | Note di sicurezza |
 |---|---|---|---|
 | `caddy` | Reverse proxy | tutte | Unico servizio esposto sull'host. |
-| `cms-api` | API, chat, login, widget, motore permessi, agente contenuti, **gateway AI**, server MCP degli strumenti | control, prod (solo contenuti), staging | Unico servizio che decifra le chiavi API dei provider. Non ha credenziali di scrittura sul codice di prod. |
+| `cms-api` | API, chat, login, widget, motore permessi, agente contenuti, **gateway AI**, server MCP degli strumenti | control, prod (solo contenuti), staging | Unico servizio che decifra le chiavi API dei provider. Non ha credenziali di scrittura sul codice di prod. Chiede all'`agent-runner` lo stato dei profili CLI in abbonamento, senza mai leggerne le credenziali. |
 | `worker` | Esegue i job della coda `jobs`: controlli, build, release, sincronizzazioni | control, prod, staging | Unico servizio con i ruoli DB di migrazione in prod. |
-| `agent-runner` | Esegue l'agente sviluppatore in sandbox, con il motore nativo o con una CLI in abbonamento | control (solo gateway AI e server MCP), egress | **Nessun** accesso alle reti prod e **nessuna chiave API**. Utente non root, filesystem limitato al workspace e al proprio profilo CLI. |
+| `agent-runner` | Esegue l'agente sviluppatore in sandbox, con il motore nativo o con una CLI in abbonamento | control (solo gateway AI e server MCP), egress | **Nessun** accesso alle reti prod e **nessuna chiave API**. Utente non root, filesystem limitato al workspace e al proprio profilo CLI. Dichiara se un login in abbonamento è salvato, senza leggerne il contenuto (FR-126). |
 | `builder` | Controlli e build dei changeset (API HTTP interna su `:8090`, chiamata dal worker) | staging | Esegue il codice del sito: nessun segreto della piattaforma, `workspaces` in sola lettura, internet solo tramite `egress-proxy`. Ogni run lavora su una copia privata del monorepo. |
 | `git` | Repository bare del sito + hook | control | Hook `pre-receive` che verifica i permessi sui percorsi (difesa in profondità). |
 | `postgres-core` | DB della piattaforma | control | Ruoli distinti per cms-api, worker e audit. |
@@ -637,6 +637,14 @@ docker compose exec -it agent-runner cms-connect claude-code --user <username>
 Il comando apre il login della CLI; l'autenticazione si completa sul sito del provider.
 Il CMS non riceve e non salva mai credenziali o token dell'account (FR-126). Il volume
 `cli-auth` è montato solo in `agent-runner`.
+
+**Stato del collegamento.** La scheda AI mostra a ogni utente se il proprio login è salvato.
+Poiché il volume `cli-auth` è montato solo in `agent-runner`, è quell'unico servizio che può
+rispondere: `cms-api` lo interroga su `POST /cli-auth/status` con un token di sessione breve
+(`AGENT_RUNNER_URL`). La risposta riguarda **solo l'utente autenticato**, mai un nome utente
+scelto dal chiamante, e consiste nel controllare che il file delle credenziali esista e non sia
+vuoto: il contenuto non è mai letto. Se l'`agent-runner` non risponde, lo stato è sconosciuto e
+la scheda lo dice, senza bloccare la pagina.
 
 **Regole d'uso** (dai termini di Anthropic per Claude Code; per le altre CLI vanno verificati
 i termini del provider prima di abilitarle):

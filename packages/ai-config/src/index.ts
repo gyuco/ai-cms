@@ -68,6 +68,8 @@ export {
   modelSupportsTools,
   setActiveConnection,
   updateConnection,
+  withSubscriptionStatus,
+  type ConnectionSubscription,
   type ConnectionView,
   type CreateConnectionInput,
   type UpdateConnectionInput,

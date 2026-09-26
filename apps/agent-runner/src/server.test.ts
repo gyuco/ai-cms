@@ -6,6 +6,8 @@ import { createRunnerServer } from './server.ts';
 let server: ReturnType<typeof createRunnerServer>;
 let baseUrl: string;
 let started: RunRequest[];
+/** Tokens whose subscription profile has a login, as the fake `cli-auth` volume. */
+let linked: Set<string>;
 
 /** Emits two events, then waits for the abort signal when the prompt says so. */
 const fakeRunner = {
@@ -33,10 +35,18 @@ const fakeRunner = {
       },
     };
   },
+  async subscriptionStatus(token: string) {
+    if (!token.startsWith('tok-')) {
+      throw new RunError(401, 'unauthenticated', 'Token di sessione agente mancante o scaduto.');
+    }
+    const username = token.slice('tok-'.length);
+    return { username, cli: 'claude-code' as const, linked: linked.has(username) };
+  },
 } as unknown as Runner;
 
 beforeEach(async () => {
   started = [];
+  linked = new Set(['mario']);
   server = createRunnerServer(fakeRunner);
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
@@ -95,5 +105,29 @@ describe('agent-runner HTTP API', () => {
     const events = await lines(res);
     expect(events.at(-1)).toMatchObject({ type: 'result', stopReason: 'aborted' });
     expect(server.runs.size).toBe(0);
+  });
+
+  it('tells whether the token owner has linked a subscription', async () => {
+    expect(await (await post('/cli-auth/status', { token: 'tok-mario' })).json()).toEqual({
+      username: 'mario',
+      cli: 'claude-code',
+      linked: true,
+    });
+    expect(await (await post('/cli-auth/status', { token: 'tok-gino' })).json()).toEqual({
+      username: 'gino',
+      cli: 'claude-code',
+      linked: false,
+    });
+  });
+
+  it('answers the subscription status of the token owner only', async () => {
+    // A username in the body is ignored: the answer is always about the session behind the token.
+    const spoofed = await post('/cli-auth/status', { token: 'tok-gino', username: 'mario' });
+    expect(await spoofed.json()).toMatchObject({ username: 'gino', linked: false });
+    const unknown = await post('/cli-auth/status', { token: 'anon' });
+    expect(unknown.status).toBe(401);
+    expect(await unknown.json()).toMatchObject({ error: { code: 'unauthenticated' } });
+    const bad = await post('/cli-auth/status', { token: '' });
+    expect(bad.status).toBe(400);
   });
 });

@@ -4,8 +4,8 @@ name: ai-cms
 x-egress-env: &egress-env
   HTTPS_PROXY: http://egress-proxy:3128
   https_proxy: http://egress-proxy:3128
-  NO_PROXY: localhost,127.0.0.1,postgres-core,postgres-prod,postgres-staging,s3,mailpit,cms-api,site-prod,site-staging,previews,builder,egress-proxy
-  no_proxy: localhost,127.0.0.1,postgres-core,postgres-prod,postgres-staging,s3,mailpit,cms-api,site-prod,site-staging,previews,builder,egress-proxy
+  NO_PROXY: localhost,127.0.0.1,postgres-core,postgres-prod,postgres-staging,s3,mailpit,cms-api,agent-runner,site-prod,site-staging,previews,builder,egress-proxy
+  no_proxy: localhost,127.0.0.1,postgres-core,postgres-prod,postgres-staging,s3,mailpit,cms-api,agent-runner,site-prod,site-staging,previews,builder,egress-proxy
   NODE_USE_ENV_PROXY: '1'
 
 x-postgres: &postgres
@@ -107,6 +107,8 @@ services:
       S3_ENDPOINT: http://s3:8333
       SMTP_HOST: mailpit
       SMTP_PORT: '1025'
+      # Asks the agent-runner whether a user has linked a subscription CLI (E8.9).
+      AGENT_RUNNER_URL: http://agent-runner:8070
     secrets:
       [
         pg_core_owner,

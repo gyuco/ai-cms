@@ -25,6 +25,15 @@ function connectionTarget(id?: string): NodeTarget {
 
 const rolesTarget: NodeTarget = { path: ROLES, kind: 'setting', storage: 'db' };
 
+/**
+ * Login of a subscription CLI, read from the agent-runner (E8.9). The login lives in the profile
+ * of the user, not on the connection, so the same status applies to every subscription.
+ */
+export interface ConnectionSubscription {
+  /** `null` when the agent-runner did not answer: the state is unknown, not missing. */
+  linked: boolean | null;
+}
+
 /** A connection as the UI sees it: never the key, only whether there is one and its hint. */
 export interface ConnectionView {
   id: string;
@@ -38,6 +47,8 @@ export interface ConnectionView {
   hasKey: boolean;
   keyHint: string | null;
   lastTest: ConnectionTestRecord | null;
+  /** Only for `subscription` connections, and only once the runner has answered. */
+  subscription?: ConnectionSubscription;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -135,6 +146,20 @@ function toView(row: AiConnection, hint: string | null): ConnectionView {
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
+}
+
+/**
+ * Adds what the agent-runner knows about the subscription login to the subscription connections
+ * (E8.9). The answer is about the user, so it is the same for all of them, and it is `null`
+ * when the runner could not be asked. Other types are returned unchanged.
+ */
+export function withSubscriptionStatus(
+  connections: readonly ConnectionView[],
+  linked: boolean | null,
+): ConnectionView[] {
+  return connections.map((connection) =>
+    connection.type === 'subscription' ? { ...connection, subscription: { linked } } : connection,
+  );
 }
 
 async function loadConnection(db: Executor, id: string): Promise<AiConnection> {

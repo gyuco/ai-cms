@@ -2,8 +2,10 @@ import {
   createConnection,
   listConnections,
   listRoleAssignments,
+  withSubscriptionStatus,
   type CreateConnectionInput,
 } from '@ai-cms/ai-config';
+import { subscriptionLinked } from '@/lib/agent-runner.ts';
 import { aiErrorResponse, principalOf, readJson, secretOptions } from '@/lib/ai.ts';
 import { authenticate } from '@/lib/context.ts';
 import { db } from '@/lib/db.ts';
@@ -17,11 +19,13 @@ export async function GET(request: Request) {
   if (context instanceof Response) return context;
   const principal = principalOf(context);
   try {
-    const [connections, roles] = await Promise.all([
+    const [connections, roles, linked] = await Promise.all([
       listConnections(db(), principal),
       listRoleAssignments(db(), principal),
+      // Only the agent-runner can read the subscription profiles: the answer may be unknown.
+      subscriptionLinked(principal, context.env),
     ]);
-    return json({ connections, roles });
+    return json({ connections: withSubscriptionStatus(connections, linked), roles });
   } catch (err) {
     return aiErrorResponse(err);
   }
