@@ -50,3 +50,17 @@ export {
   type GatewayOptions,
 } from './gateway.ts';
 export { handleInternalChat, internalChatBody, type InternalChatBody } from './internal-chat.ts';
+export {
+  connectionSecretName,
+  createConnection,
+  deleteConnection,
+  listConnections,
+  listRoleAssignments,
+  modelSupportsTools,
+  setActiveConnection,
+  updateConnection,
+  type ConnectionView,
+  type CreateConnectionInput,
+  type UpdateConnectionInput,
+} from './connections.ts';
+export { testConnection, type ConnectionTestResult } from './test-connection.ts';
