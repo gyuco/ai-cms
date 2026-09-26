@@ -10,5 +10,8 @@ RUN --mount=type=secret,id=extra_ca,required=false with-ca pnpm fetch
 COPY . .
 RUN pnpm install --frozen-lockfile --offline --filter @ai-cms/worker...
 ENV NODE_ENV=production
+# Named volumes inherit this ownership on first mount.
+RUN mkdir -p /data/git /data/workspaces /data/releases /data/backups \
+  && chown -R node:node /data
 USER node
 CMD ["pnpm", "--filter", "@ai-cms/worker", "start"]
