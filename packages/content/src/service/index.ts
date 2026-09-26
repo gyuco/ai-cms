@@ -55,6 +55,17 @@ export {
   type PageVersionInfo,
 } from './pages.ts';
 export {
+  deletePage,
+  getSiteOverview,
+  listTreeEntries,
+  movePage,
+  renamePage,
+  saveSiteSettings,
+  type SharedEntry,
+  type SiteOverview,
+  type TreeEntry,
+} from './site.ts';
+export {
   PlanError,
   executePlan,
   planOperationSchema,

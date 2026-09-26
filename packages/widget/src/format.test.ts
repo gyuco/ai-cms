@@ -3,6 +3,7 @@ import {
   formatDateTime,
   pageStateLabel,
   pageUrlOf,
+  parentFromUrl,
   plural,
   shortText,
   slugify,
@@ -60,5 +61,13 @@ describe('format', () => {
     expect(plural(0, 'versione', 'versioni')).toBe('0 versioni');
     expect(slugify('  Chi siamo? Perché noi!  ')).toBe('chi-siamo-perche-noi');
     expect(slugify('Ω')).toBe('');
+  });
+
+  it('parentFromUrl maps a destination URL to the parent node', () => {
+    expect(parentFromUrl('')).toBe('/site/pages');
+    expect(parentFromUrl(' / ')).toBe('/site/pages');
+    expect(parentFromUrl('/progetti/')).toBe('/site/pages/progetti');
+    expect(parentFromUrl('progetti/2026')).toBe('/site/pages/progetti/2026');
+    expect(parentFromUrl('/Progetti')).toBeNull();
   });
 });

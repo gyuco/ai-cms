@@ -52,3 +52,16 @@ export const revalidateSite: PublishHook = async (paths, env) => {
     throw new Error(`il sito ha risposto ${String(response.status)} alla rigenerazione`);
   }
 };
+
+/**
+ * After a page was renamed, moved or deleted: every URL under it changed and menus may
+ * point to it, so the whole site is regenerated. Returns `hookError` like a publication.
+ */
+export async function revalidatePages(env: Env): Promise<{ hookError?: string }> {
+  try {
+    await revalidateSite(['/site/pages'], env);
+    return {};
+  } catch (error) {
+    return { hookError: error instanceof Error ? error.message : String(error) };
+  }
+}

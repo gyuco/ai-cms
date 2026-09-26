@@ -210,9 +210,108 @@ export function createMockState() {
     return null;
   }
 
+  let settings = { name: 'Studio Rossi', lang: 'it', titleTemplate: '%s · Studio Rossi' };
+  let settingsVersion = 3;
+  const shared = (path: string, latest: number | null, published: number | null) => ({
+    name: path.split('/').at(-1),
+    path,
+    status: {
+      latestVersion: latest,
+      publishedVersion: published,
+      hasDraft: latest !== null && latest !== published,
+    },
+  });
+  const childrenOf = (parent: string) =>
+    [...nodes.keys()]
+      .filter(
+        (path) => path.startsWith(`${parent}/`) && !path.slice(parent.length + 1).includes('/'),
+      )
+      .sort();
+
+  function relocate(from: string, to: string): MockResult | null {
+    if (nodes.has(to)) return fail(400, 'invalid', `Esiste già un nodo in ${to}.`);
+    for (const path of [...nodes.keys()]) {
+      if (path === from || path.startsWith(`${from}/`)) {
+        const node = nodes.get(path)!;
+        nodes.delete(path);
+        node.version++;
+        nodes.set(to + path.slice(from.length), node);
+      }
+    }
+    return null;
+  }
+
+  function site(req: MockRequest, route: string): MockResult | null {
+    switch (route) {
+      case 'GET /tree': {
+        const parent = req.query.get('path') ?? '/site/pages';
+        if (!nodes.has(parent)) return fail(404, 'not_found', `Il nodo ${parent} non esiste.`);
+        return ok({
+          entries: childrenOf(parent).map((path) => {
+            const node = nodes.get(path)!;
+            const title = node.versions.at(-1)?.body.meta.title;
+            return {
+              path,
+              name: path.split('/').at(-1),
+              kind: node.kind,
+              url: pageUrl(path),
+              title: typeof title === 'string' ? title : null,
+              hasChildren: childrenOf(path).length > 0,
+              version: node.version,
+              status: status(node),
+            };
+          }),
+        });
+      }
+      case 'POST /pages/rename': {
+        const path = String(req.body.path);
+        const to = `${path.slice(0, path.lastIndexOf('/'))}/${String(req.body.name)}`;
+        return relocate(path, to) ?? ok({ path: to });
+      }
+      case 'POST /pages/move': {
+        const path = String(req.body.path);
+        if (!nodes.has(String(req.body.parent))) {
+          return fail(404, 'not_found', `Il nodo ${String(req.body.parent)} non esiste.`);
+        }
+        const to = `${String(req.body.parent)}/${path.split('/').at(-1)}`;
+        return relocate(path, to) ?? ok({ path: to });
+      }
+      case 'POST /pages/delete': {
+        const path = String(req.body.path);
+        for (const key of [...nodes.keys()]) {
+          if (key === path || key.startsWith(`${path}/`)) nodes.delete(key);
+        }
+        return ok({ path, hookError: 'il sito non è raggiungibile per la rigenerazione' });
+      }
+      case 'GET /site':
+        return ok({
+          settings: {
+            value: settings,
+            version: settingsVersion,
+            status: {
+              latestVersion: settingsVersion,
+              publishedVersion: settingsVersion,
+              hasDraft: false,
+            },
+          },
+          layouts: [shared('/site/layouts/footer', 2, 2), shared('/site/layouts/header', 3, 2)],
+          menus: [shared('/site/menus/main', 1, 1)],
+        });
+      case 'PUT /site': {
+        const next = req.body.settings as typeof settings;
+        if (!next.titleTemplate.includes('%s')) {
+          return fail(400, 'invalid', 'Il modello del titolo deve contenere "%s".');
+        }
+        settings = next;
+        return ok({ version: ++settingsVersion });
+      }
+    }
+    return null;
+  }
+
   function handle(req: MockRequest): MockResult {
     const route = `${req.method} ${req.path}`;
-    const result = pages(req, route);
+    const result = pages(req, route) ?? site(req, route);
     if (result) return result;
     switch (route) {
       case 'GET /context':

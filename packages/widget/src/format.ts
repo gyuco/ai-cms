@@ -57,10 +57,23 @@ export function plural(count: number, one: string, many: string): string {
 export function slugify(title: string): string {
   return title
     .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
+    .replace(/\p{M}/gu, '')
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .slice(0, 63)
     .replace(/-+$/, '');
+}
+
+export const PAGES_ROOT = '/site/pages';
+
+/**
+ * Parent node for a page typed as a site URL (`/progetti` → `/site/pages/progetti`); empty
+ * or `/` is the top level. Null when the URL cannot be a page.
+ */
+export function parentFromUrl(value: string): string | null {
+  const clean = value.trim().replace(/^\/+|\/+$/g, '');
+  if (clean === '') return PAGES_ROOT;
+  if (!clean.split('/').every((part) => /^[a-z0-9][a-z0-9_-]{0,62}$/.test(part))) return null;
+  return `${PAGES_ROOT}/${clean}`;
 }
