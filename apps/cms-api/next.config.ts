@@ -6,7 +6,13 @@ const config: NextConfig = {
   basePath: '/_cms',
   output: 'standalone',
   outputFileTracingRoot: path.join(import.meta.dirname, '../..'),
-  transpilePackages: ['@ai-cms/audit', '@ai-cms/auth', '@ai-cms/db'],
+  transpilePackages: [
+    '@ai-cms/audit',
+    '@ai-cms/auth',
+    '@ai-cms/authz',
+    '@ai-cms/db',
+    '@ai-cms/site-kit',
+  ],
   serverExternalPackages: ['@node-rs/argon2'],
 };
 

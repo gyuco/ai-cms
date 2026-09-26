@@ -10,6 +10,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@ai-cms/content": "workspace:*",
+    "@ai-cms/site-kit": "workspace:*",
     "next": "^16.3.6",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
+import '@ai-cms/site-kit/base.css';
 
 export const metadata: Metadata = {
   title: 'Nuovo sito',

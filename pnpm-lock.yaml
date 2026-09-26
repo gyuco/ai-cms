@@ -44,12 +44,21 @@ importers:
       '@ai-cms/auth':
         specifier: workspace:*
         version: link:../../packages/auth
+      '@ai-cms/authz':
+        specifier: workspace:*
+        version: link:../../packages/authz
       '@ai-cms/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@ai-cms/site-kit':
+        specifier: workspace:*
+        version: link:../../packages/site-kit
       '@ai-cms/widget':
         specifier: workspace:*
         version: link:../../packages/widget
+      drizzle-orm:
+        specifier: ^0.45.3
+        version: 0.45.3(postgres@3.4.9)
       next:
         specifier: ^16.3.6
         version: 16.3.6(@types/node@22.20.4)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -204,6 +213,9 @@ importers:
       '@ai-cms/db':
         specifier: workspace:*
         version: link:../db
+      postgres:
+        specifier: ^3.4.9
+        version: 3.4.9
     devDependencies:
       '@ai-cms/html-rules':
         specifier: workspace:*
@@ -214,6 +226,9 @@ importers:
       '@types/react-dom':
         specifier: ^19.3.0
         version: 19.3.0(@types/react@19.3.0)
+      drizzle-orm:
+        specifier: ^0.45.3
+        version: 0.45.3(postgres@3.4.9)
       next:
         specifier: ^16.3.6
         version: 16.3.6(@types/node@22.20.4)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -241,6 +256,12 @@ importers:
 
   templates/site:
     dependencies:
+      '@ai-cms/content':
+        specifier: workspace:*
+        version: link:../../packages/content
+      '@ai-cms/site-kit':
+        specifier: workspace:*
+        version: link:../../packages/site-kit
       next:
         specifier: ^16.3.6
         version: 16.3.6(@types/node@22.20.4)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
