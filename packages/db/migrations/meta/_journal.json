@@ -43,6 +43,13 @@
       "when": 1790417342283,
       "tag": "0005_dev",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790417367217,
+      "tag": "0006_ai",
+      "breakpoints": true
     }
   ]
 }
