@@ -39,6 +39,25 @@ export {
 } from './changesets.ts';
 export { pathsOverlap, touchedTreePaths, treePathForFile } from './tree-paths.ts';
 export {
+  ManifestError,
+  parseManifest,
+  resolveRepoFileForTreePath,
+  resolveTreePathForFile,
+  type Manifest,
+  type ManifestFileMapping,
+  type ManifestRule,
+  type TreeFileMatch,
+} from './manifest.ts';
+export {
+  listRepoFiles,
+  loadManifest,
+  syncCodeNodes,
+  type CodeNodeSyncOutcome,
+  type CodeNodeSyncResult,
+  type CodeNodeSyncStatus,
+  type SyncCodeNodesOptions,
+} from './code-nodes.ts';
+export {
   changesetDatabaseName,
   createChangesetDatabase,
   dropChangesetDatabase,

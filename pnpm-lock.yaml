@@ -352,6 +352,9 @@ importers:
       '@ai-cms/db':
         specifier: workspace:*
         version: link:../db
+      '@ai-cms/tree':
+        specifier: workspace:*
+        version: link:../tree
       drizzle-orm:
         specifier: ^0.45.3
         version: 0.45.3(postgres@3.4.9)
