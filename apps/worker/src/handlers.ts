@@ -1,7 +1,14 @@
 import { fileURLToPath } from 'node:url';
 import { deleteExpiredSessions } from '@ai-cms/auth';
 import type { Database } from '@ai-cms/db';
-import { initSiteRepo, siteRepoPaths, type JobHandler, type SiteRepoPaths } from '@ai-cms/pipeline';
+import {
+  closeChangeset,
+  initSiteRepo,
+  recordWork,
+  siteRepoPaths,
+  type JobHandler,
+  type SiteRepoPaths,
+} from '@ai-cms/pipeline';
 
 export interface HandlerOptions {
   site?: SiteRepoPaths;
@@ -26,7 +33,18 @@ export function createHandlers(
       return { ok: true };
     },
     'site.init': async () => initSiteRepo({ gitRoot: site.gitRoot, templateDir }),
+    'changeset.record': async (payload) => recordWork(db, changesetIdOf(payload), site),
+    'changeset.close': async (payload) => {
+      const changeset = await closeChangeset(db, changesetIdOf(payload), site);
+      return { status: changeset.status };
+    },
   };
+}
+
+function changesetIdOf(payload: unknown): string {
+  const id = (payload as { changesetId?: unknown } | null)?.changesetId;
+  if (typeof id !== 'string') throw new Error('payload.changesetId mancante');
+  return id;
 }
 
 /** Recurring maintenance jobs, enqueued periodically (deduplicated). */

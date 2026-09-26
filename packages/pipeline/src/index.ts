@@ -20,3 +20,21 @@ export {
   type InitSiteRepoResult,
   type SiteRepoPaths,
 } from './site-repo.ts';
+export {
+  canTransition,
+  ChangesetError,
+  closeChangeset,
+  createChangeset,
+  findConflicts,
+  openChangesetStatuses,
+  recordWork,
+  setChangesetStatus,
+  workspacePath,
+  type Changeset,
+  type ChangesetConflict,
+  type ChangesetStatus,
+  type CreateChangesetInput,
+  type RecordWorkResult,
+  type SetStatusOptions,
+} from './changesets.ts';
+export { pathsOverlap, touchedTreePaths, treePathForFile } from './tree-paths.ts';
