@@ -1085,6 +1085,8 @@ docker compose exec -it agent-runner cms-connect claude-code --user root
 
 ## 16. Roadmap tecnica
 
+Il dettaglio di task e subtask dell'MVP 1 è in `MVP1.md`.
+
 | Milestone | Contenuto | Criteri PRD §9 |
 |---|---|---|
 | **M0 — Fondamenta** | Monorepo, Docker Compose, `cms_core`, auth, seed, audit | 1 |
