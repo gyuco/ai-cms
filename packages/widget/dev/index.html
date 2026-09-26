@@ -20,18 +20,54 @@
         padding: 2rem 1rem;
         background: #fffaf0;
       }
+      header nav a {
+        margin-right: 1rem;
+      }
+      figure {
+        margin: 1.5rem 0;
+      }
+      .photo {
+        height: 140px;
+        background: linear-gradient(135deg, #e7d9c4, #b9a07e);
+      }
     </style>
   </head>
   <body>
-    <main>
-      <h1>Pagina di prova</h1>
-      <p>
+    <!-- Same attributes as the site renderer: data-cms-node on the owner, data-cms-block on blocks. -->
+    <header data-cms-node="/site/layouts/header">
+      <nav data-cms-block="nav-main" aria-label="Principale">
+        <a href="/">Home</a><a href="/chi-siamo">Chi siamo</a><a href="/progetti">Progetti</a>
+      </nav>
+    </header>
+    <main data-cms-node="">
+      <h1 data-cms-block="b-title">Pagina di prova</h1>
+      <p data-cms-block="b-intro">
         Questa pagina carica il widget dai sorgenti con un'API finta. Aggiungi
         <code>?env=staging</code> all'indirizzo per lo staging, <code>?anon</code> per un visitatore
         senza sessione.
       </p>
+      <figure data-cms-block="b-photo">
+        <div class="photo" role="img" aria-label="Lo studio visto dal cortile"></div>
+        <figcaption>Lo studio visto dal cortile.</figcaption>
+      </figure>
+      <h2 data-cms-block="b-services">Cosa facciamo</h2>
+      <p data-cms-block="b-services-text">
+        Progettazione residenziale, ristrutturazioni e interni, dal primo schizzo al cantiere.
+      </p>
       <button type="button">Pulsante del sito</button>
     </main>
+    <footer data-cms-node="/site/layouts/footer">
+      <p data-cms-block="footer-text">© Studio di prova</p>
+    </footer>
+    <script>
+      // The renderer sets the page's node; here it follows the URL like the real site.
+      const segments = location.pathname.split('/').filter(Boolean);
+      const page = segments[0] === 'dev' || segments.length === 0 ? 'index' : segments.join('/');
+      document.querySelector('main').dataset.cmsNode = `/site/pages/${page}`;
+      document.querySelector('h1').textContent = location.pathname.startsWith('/dev/')
+        ? 'Pagina di prova'
+        : `Pagina ${location.pathname}`;
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

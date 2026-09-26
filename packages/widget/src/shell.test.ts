@@ -4,6 +4,7 @@ import { act } from 'preact/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { WidgetContext } from './api.ts';
 import { App } from './app.tsx';
+import { selection } from './selection.ts';
 import { STORAGE_KEY } from './storage.ts';
 
 const me: WidgetContext = {
@@ -122,5 +123,42 @@ describe('Shell', () => {
     expect(parseInt(dialog.style.left, 10)).toBe(before - 16);
     const stored = JSON.parse(localStorage.getItem(STORAGE_KEY)!) as { rect: { x: number } };
     expect(stored.rect.x).toBe(before - 16);
+  });
+
+  it('selects a page block from the keyboard list; Esc cancels without closing', async () => {
+    const page = document.createElement('main');
+    page.dataset.cmsNode = '/site/pages/index';
+    page.innerHTML = '<h1 data-cms-block="t1">Benvenuti</h1><p data-cms-block="p1">Testo</p>';
+    document.body.append(page);
+    try {
+      await renderApp();
+      await act(() => $('.launcher')!.click());
+      const toggle = $('button[aria-label="Seleziona un elemento della pagina"]')!;
+
+      await act(() => toggle.click());
+      expect(toggle.getAttribute('aria-pressed')).toBe('true');
+      expect($('.select-layer')).not.toBeNull();
+      const choices = [...container.querySelectorAll<HTMLElement>('.block-choice')];
+      expect(choices.map((c) => c.textContent)).toEqual(['Titolo Benvenuti', 'Paragrafo Testo']);
+      expect(document.activeElement).toBe(choices[0]);
+
+      await act(() => press(choices[0]!, 'Escape'));
+      expect(selection.get().selecting).toBe(false);
+      expect($('[role="dialog"]')!.hidden).toBe(false);
+      expect(document.activeElement).toBe(toggle);
+
+      await act(() => toggle.click());
+      await act(() => container.querySelectorAll<HTMLElement>('.block-choice')[1]!.click());
+      expect(selection.get().selected).toEqual({
+        path: '/site/pages/index',
+        blockId: 'p1',
+        text: 'Testo',
+      });
+      expect($('.selected-chip')!.textContent).toContain('Testo');
+      expect($('.select-layer')).toBeNull();
+    } finally {
+      selection.clear();
+      page.remove();
+    }
   });
 });

@@ -41,7 +41,7 @@ export function App({ fetchFn }: { fetchFn?: typeof fetch }) {
 
   return value ? (
     <WidgetState.Provider value={value}>
-      <Shell me={value.context} />
+      <Shell me={value.context} pagePath={value.context.node?.path ?? null} />
     </WidgetState.Provider>
   ) : null;
 }
