@@ -165,7 +165,20 @@ importers:
 
   packages/site-kit: {}
 
-  packages/tree: {}
+  packages/tree:
+    dependencies:
+      '@ai-cms/audit':
+        specifier: workspace:*
+        version: link:../audit
+      '@ai-cms/authz':
+        specifier: workspace:*
+        version: link:../authz
+      '@ai-cms/db':
+        specifier: workspace:*
+        version: link:../db
+      drizzle-orm:
+        specifier: ^0.45.3
+        version: 0.45.3(postgres@3.4.9)
 
   packages/widget: {}
 
