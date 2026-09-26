@@ -11,8 +11,10 @@
     "build:cli": "esbuild cli/admin.ts --bundle --platform=node --format=esm --target=node22 --outfile=dist/admin.mjs --external:@node-rs/argon2 --banner:js=\"import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);\""
   },
   "dependencies": {
+    "@ai-cms/ai-config": "workspace:*",
     "@ai-cms/audit": "workspace:*",
     "@ai-cms/auth": "workspace:*",
+    "@ai-cms/authz": "workspace:*",
     "@ai-cms/db": "workspace:*",
     "@ai-cms/widget": "workspace:*",
     "next": "^16.3.6",

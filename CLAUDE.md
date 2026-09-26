@@ -26,8 +26,9 @@ Prima di ogni commit devono passare `format:check`, `lint`, `typecheck` e `test`
 - Test accanto al codice: `src/**/*.test.ts`.
 - Testi rivolti agli utenti in italiano; codice, identificatori e commenti in inglese.
 - Ogni azione su nodi e contenuti passa da `@ai-cms/authz` (TECHNICAL §6). `@ai-cms/db` si può
-  importare solo da `db`, `tree`, `content`, `pipeline`, `auth`, `audit`, `apps/cms-api/lib`,
-  `apps/cms-api/cli`, `apps/worker` e dai test (regola ESLint `no-restricted-imports`).
+  importare solo da `db`, `tree`, `content`, `pipeline`, `auth`, `audit`, `ai-config`,
+  `apps/cms-api/lib`, `apps/cms-api/cli`, `apps/worker` e dai test (regola ESLint
+  `no-restricted-imports`).
 - In fase 1 tutti gli utenti sono amministratori, ma i vincoli di sistema (TECHNICAL §6.3)
   valgono sempre.
 - Commit piccoli, uno per task quando possibile, con `Closes #<issue>` quando la task è completa.
