@@ -45,7 +45,7 @@
 | Sito generato | Next.js (App Router) | Pagine statiche con ISR e pagine dinamiche nello stesso runtime. |
 | Database | PostgreSQL 17 (con estensione `ltree`) | Albero dei nodi con query sugli antenati efficienti; `CREATE DATABASE … TEMPLATE` per clonare i DB di staging. |
 | ORM e migrazioni | Drizzle ORM + drizzle-kit | Schema tipizzato, migrazioni SQL leggibili e revisionabili. |
-| Code di lavoro | pg-boss (su PostgreSQL) | Nessun servizio in più da gestire. |
+| Code di lavoro | Tabella `jobs` in PostgreSQL (`@ai-cms/pipeline`): `FOR UPDATE SKIP LOCKED` + `LISTEN/NOTIFY` | Nessun servizio in più; niente DDL a runtime, compatibile con i ruoli DB separati (pg-boss crea tabelle a runtime). |
 | Storage asset | SeaweedFS (API compatibile S3) | Bucket separati per produzione e staging. Licenza Apache 2.0; MinIO non distribuisce più immagini Docker per la versione community. |
 | Git server | Repository bare su volume + hook `pre-receive` | Semplice, locale, con controllo permessi anche lato git. |
 | Reverse proxy | Caddy | Host `*.localhost`, routing verso anteprime dinamiche. |
@@ -76,7 +76,7 @@
   │      │   API, authz         (utenti, albero, ACL,  │               │             │
   │      │                      contenuti, audit)      │               │             │
   │      ▼                                             │               │             │
-  │  worker (pg-boss) ── builder ── git (bare repo) ───┼───────────────┤             │
+  │  worker (coda jobs) ── builder ── git (bare repo) ───┼───────────────┤             │
   │      │                                             │               │             │
   │      └──► agent-runner (motori AI + CLI, sandbox)  │               │             │
   └───────────────────────────────────────────────────┼───────────────┼─────────────┘
@@ -96,7 +96,7 @@
 |---|---|---|---|
 | `caddy` | Reverse proxy | tutte | Unico servizio esposto sull'host. |
 | `cms-api` | API, chat, login, widget, motore permessi, agente contenuti, **gateway AI**, server MCP degli strumenti | control, prod (solo contenuti), staging | Unico servizio che decifra le chiavi API dei provider. Non ha credenziali di scrittura sul codice di prod. |
-| `worker` | Esegue i job: controlli, build, release, sincronizzazioni | control, prod, staging | Unico servizio con i ruoli DB di migrazione in prod. |
+| `worker` | Esegue i job della coda `jobs`: controlli, build, release, sincronizzazioni | control, prod, staging | Unico servizio con i ruoli DB di migrazione in prod. |
 | `agent-runner` | Esegue l'agente sviluppatore in sandbox, con il motore nativo o con una CLI in abbonamento | control (solo gateway AI e server MCP), egress | **Nessun** accesso alle reti prod e **nessuna chiave API**. Utente non root, filesystem limitato al workspace e al proprio profilo CLI. |
 | `builder` | Build di artefatti e test in un container usa e getta | staging | Nessuna credenziale di prod. |
 | `git` | Repository bare del sito + hook | control | Hook `pre-receive` che verifica i permessi sui percorsi (difesa in profondità). |
@@ -131,7 +131,7 @@
 ai-cms/
 ├── apps/
 │   ├── cms-api/              Next.js: API, chat in streaming, login, serve il widget
-│   └── worker/               job pg-boss: pipeline, release, sync
+│   └── worker/               job in coda: pipeline, release, sync
 ├── packages/
 │   ├── authz/                motore permessi (puro, senza I/O) + adattatore DB
 │   ├── db/                   schema Drizzle di cms_core, migrazioni, seed
@@ -855,7 +855,7 @@ Job `staging.sync` (richiede `CAP_STAGING_SYNC`, su richiesta o pianificato):
 - Contenuti statici: una nuova versione diventa visibile aggiornando `publications`.
 - `cms-api` chiama `POST /__cms/revalidate` sul sito (token condiviso, solo rete interna)
   con i percorsi da rigenerare. Il sito usa `revalidatePath` di Next.js (NFR-03).
-- Le pubblicazioni programmate sono gestite da un job pg-boss al momento indicato.
+- Le pubblicazioni programmate sono job della coda con `run_at` al momento indicato.
 - L'HTML libero dei blocchi viene sanitizzato al salvataggio con un'allowlist di tag e
   attributi. `<script>` e gli attributi `on*` non sono mai ammessi nei contenuti (FR-112).
   Le funzionalità interattive si fanno con componenti che passano dalla release.

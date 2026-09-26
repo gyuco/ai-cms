@@ -71,6 +71,15 @@ importers:
 
   apps/worker:
     dependencies:
+      '@ai-cms/auth':
+        specifier: workspace:*
+        version: link:../../packages/auth
+      '@ai-cms/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      '@ai-cms/pipeline':
+        specifier: workspace:*
+        version: link:../../packages/pipeline
       tsx:
         specifier: ^4.23.15
         version: 4.23.15
@@ -127,7 +136,17 @@ importers:
 
   packages/mcp-tools: {}
 
-  packages/pipeline: {}
+  packages/pipeline:
+    dependencies:
+      '@ai-cms/db':
+        specifier: workspace:*
+        version: link:../db
+      drizzle-orm:
+        specifier: ^0.45.3
+        version: 0.45.3(postgres@3.4.9)
+      postgres:
+        specifier: ^3.4.9
+        version: 3.4.9
 
   packages/site-kit: {}
 

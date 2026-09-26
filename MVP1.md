@@ -495,7 +495,7 @@ chiamanti.
 ## E11 — Controlli automatici
 
 ### E11.1 Worker e code — **S** · dipende da E2.1
-- [ ] pg-boss, framework dei job, retry, log
+- [ ] Coda su tabella `jobs` (SKIP LOCKED + LISTEN/NOTIFY), retry con backoff, log
 
 ### E11.2 Esecuzione dei controlli — **L** · dipende da E11.1, E1.2, E10.4
 - [ ] Nel `builder`: `permissions`, `typecheck`, `lint`, `deps`, `unit`, `migration`, `build`, `html`, `e2e`, `a11y`

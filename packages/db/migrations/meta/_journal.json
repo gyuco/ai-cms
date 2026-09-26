@@ -71,6 +71,20 @@
       "when": 1790418072115,
       "tag": "0009_auth_tokens",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1790418799667,
+      "tag": "0010_jobs",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1790418800769,
+      "tag": "0011_jobs_notify",
+      "breakpoints": true
     }
   ]
 }
