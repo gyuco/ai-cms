@@ -47,6 +47,8 @@ Per rendere sicuro un sistema in cui l'AI scrive anche codice, AI-CMS si basa su
 | **Ambiente** | *Produzione* (sito pubblico) o *Staging* (ambiente parallelo di sviluppo e test). |
 | **Agente contenuti** | L'AI disponibile in produzione, che può solo gestire contenuti. |
 | **Agente sviluppatore** | L'AI disponibile in staging, che può scrivere codice e schemi. |
+| **Provider AI** | Un fornitore di modelli AI (es. Anthropic, OpenAI, Google, Mistral, un modello locale). |
+| **Connessione AI** | Il modo in cui il CMS usa un provider: con una **chiave API** (pagamento a consumo), con un **abbonamento** (piano fisso, tramite lo strumento ufficiale del provider) oppure con un **modello locale**. |
 | **Utente** | Una persona con credenziali di accesso. |
 | **Gruppo** | Un insieme di utenti. I ruoli sono gruppi. |
 | **Capability** | Un permesso di sistema non legato a un nodo (es. "approvare una release"). |
@@ -116,7 +118,7 @@ Ogni requisito ha un identificativo (`FR-xx`) e una priorità: **M** = must, **S
 | FR-07 | L'agente mostra un riepilogo delle modifiche che intende fare (anteprima o diff) prima di applicarle. | M |
 | FR-08 | La conversazione è salvata e collegata alle modifiche che ha prodotto (da una versione si risale alla conversazione e viceversa). | S |
 | FR-09 | L'utente può allegare file (immagini, documenti, CSV) che l'agente può usare come contenuto o come dati da importare. | S |
-| FR-10 | L'amministratore può configurare per ogni agente il modello AI, le istruzioni di base, gli strumenti disponibili e i limiti di spesa. | S |
+| FR-10 | L'amministratore può configurare per ogni agente il provider e il modello AI, le istruzioni di base, gli strumenti disponibili e i limiti di spesa (vedi 5.10). | M |
 | FR-11 | Più utenti possono lavorare in parallelo in chat diverse senza sovrascriversi (vedi 5.6 sui conflitti). | M |
 
 ### 5.2 Pagine statiche e contenuti
@@ -163,14 +165,14 @@ Ogni requisito ha un identificativo (`FR-xx`) e una priorità: **M** = must, **S
 | ID | Requisito | Priorità |
 |---|---|---|
 | FR-50 | Un changeset che ha superato i controlli può essere **proposto per la release**. | M |
-| FR-51 | La release richiede l'approvazione di un utente con la capability di approvazione. | M |
-| FR-52 | **Separazione dei compiti:** chi ha creato un changeset non può approvarlo da solo (disattivabile dall'amministratore per installazioni con un solo utente). | M |
+| FR-51 | La release richiede l'approvazione di **un solo revisore** con la capability di approvazione. L'approvazione è **un solo clic** ("Approva e pubblica"): approva ed esegue la release. | M |
+| FR-52 | Separazione dei compiti: chi ha creato un changeset non può approvarlo da solo. **Disattivata di default**, attivabile in seguito dall'amministratore. | C |
 | FR-53 | Il revisore vede diff, descrizione, esito dei controlli, impatto sugli schemi e la conversazione che ha generato il changeset. | M |
-| FR-54 | Il revisore può approvare, rifiutare o chiedere modifiche con un commento; la richiesta di modifiche torna all'agente sviluppatore. | M |
+| FR-54 | Il revisore può approvare o rifiutare con un commento facoltativo; il commento di un rifiuto torna all'agente sviluppatore come richiesta di modifiche. | M |
 | FR-55 | La release porta in produzione codice e modifiche agli schemi insieme, in modo che il sito non resti mai in uno stato intermedio. | M |
 | FR-56 | Prima di applicare modifiche agli schemi in produzione viene salvata una copia di sicurezza dei dati interessati. | M |
 | FR-57 | **Rollback** di una release con un comando, riportando il codice alla release precedente. | M |
-| FR-58 | Più changeset possono essere raggruppati in una sola release. | S |
+| FR-58 | Più changeset possono essere raggruppati in una sola release. | C |
 | FR-59 | Storico delle release con autore, approvatore, data, contenuto ed esito. | M |
 
 ### 5.6 Versioni, conflitti e annullamento
@@ -367,6 +369,48 @@ Il sistema nasce con questi gruppi, tutti modificabili:
 | FR-112 | HTML e script inseriti come contenuto in produzione sono filtrati: gli script sono consentiti solo tramite componenti approvati passati per una release. | M |
 | FR-113 | Protezione dei form pubblici da spam e abusi (limite di richieste). | S |
 
+### 5.10 Modelli e provider AI
+
+Il CMS **non dipende da un solo fornitore di AI**. Si possono collegare più provider e scegliere
+quale usare per ogni agente, anche sfruttando gli abbonamenti a prezzo fisso.
+
+#### 5.10.1 Tipi di connessione
+
+| Tipo | Come si paga | Esempi | Uso tipico |
+|---|---|---|---|
+| **Chiave API** | A consumo (per token) | Anthropic, OpenAI, Google Gemini, Mistral, OpenRouter, qualsiasi servizio compatibile con l'API OpenAI | Tutti gli agenti |
+| **Abbonamento** | Piano fisso mensile | Claude Pro/Max tramite Claude Code; piani ChatGPT tramite Codex CLI; piani Google tramite Gemini CLI | Soprattutto l'agente sviluppatore |
+| **Modello locale** | Gratis (gira sul tuo computer) | Ollama, LM Studio, vLLM | Prove, compiti semplici, privacy totale |
+
+Con un **abbonamento** il CMS non chiama direttamente le API del provider: fa lavorare lo
+**strumento ufficiale da riga di comando** del provider (es. Claude Code), in cui l'utente ha
+fatto il login con il **proprio** account. È il modo previsto dai provider per usare il piano
+fisso; i consumi rientrano nei limiti del piano, non in una fattura a consumo.
+
+#### 5.10.2 Requisiti
+
+| ID | Requisito | Priorità |
+|---|---|---|
+| FR-120 | Collegare più provider contemporaneamente, di tutti e tre i tipi. | M |
+| FR-121 | Per ogni **ruolo AI** (agente contenuti, agente sviluppatore, revisore AI, traduzioni, generazione di testi alternativi) scegliere provider e modello. | M |
+| FR-122 | Per ogni ruolo indicare un'**alternativa di riserva**: se il provider principale non risponde o ha esaurito i limiti del piano, il CMS passa alla riserva e lo segnala in chat. | S |
+| FR-123 | Pulsante **"Prova connessione"**: verifica credenziali, modello e capacità richieste (uso di strumenti, lettura di immagini). | M |
+| FR-124 | Il CMS impedisce di assegnare a un ruolo un modello privo delle capacità necessarie (es. un modello senza uso di strumenti non può fare da agente). | M |
+| FR-125 | **Abbonamenti personali:** ogni utente collega il **proprio** abbonamento con il login ufficiale del provider. Un abbonamento non viene mai condiviso tra più utenti del CMS. | M |
+| FR-126 | Il CMS non vede e non salva mai la password dell'account del provider: il login avviene sempre con la procedura ufficiale del provider. | M |
+| FR-127 | Le chiavi API sono segreti: si inseriscono una volta, non sono più visualizzabili e non sono mai accessibili agli agenti. | M |
+| FR-128 | Chiavi API **condivise** (configurate dall'amministratore, usate da tutti) o **personali** (di un singolo utente). | S |
+| FR-129 | Cruscotto consumi per utente, ruolo e provider: token e costo stimato per le chiavi API; numero di richieste e avvisi di limite per gli abbonamenti. | S |
+| FR-130 | Limite di spesa mensile per le chiavi API, per utente e totale, con blocco o avviso al superamento. | S |
+| FR-131 | L'utente può cambiare modello per una singola conversazione, scegliendo tra quelli che l'amministratore gli consente. | C |
+| FR-132 | Le regole sui permessi (5.7) valgono **allo stesso modo con qualsiasi provider**: cambiare modello non cambia mai ciò che l'agente può fare. | M |
+
+#### 5.10.3 Configurazione di partenza (fase 1)
+
+In fase 1 basta **una sola connessione** per iniziare: l'utente sceglie un abbonamento
+(es. Claude Code) **oppure** una chiave API, e il CMS la usa per tutti i ruoli.
+Riserve, limiti di spesa e cruscotto arrivano dopo.
+
 ---
 
 ## 6. Flussi principali
@@ -388,7 +432,7 @@ Il sistema nasce con questi gruppi, tutti modificabili:
 4. Partono i controlli automatici. In caso di errore l'agente corregge.
 5. Lo sviluppatore prova il catalogo sul sito di staging e chiede ritocchi in chat.
 6. Propone il changeset per la release.
-7. Il release manager esamina diff e controlli, poi approva.
+7. Il revisore esamina diff e controlli, poi clicca **"Approva e pubblica"**.
 8. La release viene applicata in produzione: backup, schema, codice. Il catalogo è online.
 9. In caso di problemi, rollback con un comando.
 
@@ -431,17 +475,19 @@ Il sistema nasce con questi gruppi, tutti modificabili:
 2. Un redattore crea e pubblica una pagina statica in produzione **solo via chat**.
 3. Un redattore **non riesce** a modificare codice in produzione, e l'agente spiega perché.
 4. Uno sviluppatore crea in staging una collezione e una pagina dinamica via chat; i controlli passano.
-5. Un release manager approva; la pagina dinamica compare in produzione con i suoi dati.
+5. Un revisore approva con un clic; la pagina dinamica compare in produzione con i suoi dati.
 6. Il rollback riporta la produzione alla release precedente.
 7. Un autore in una cartella con sticky bit non riesce a eliminare la pagina di un altro autore.
 8. Il comando "Perché?" spiega correttamente un permesso concesso e uno negato.
 9. Ogni azione dei punti precedenti è presente nel registro di audit.
+10. L'agente sviluppatore completa il punto 4 sia con un **abbonamento** (es. Claude Code)
+    sia con una **chiave API** di un provider diverso, senza modifiche al resto del sistema.
 
 ---
 
 ## 10. Domande aperte
 
-1. Quanti livelli di approvazione servono per una release (uno o più revisori)?
+1. ~~Quanti revisori servono per una release?~~ **Deciso:** uno solo, approvazione con un clic.
 2. I dati inseriti dai visitatori in produzione (es. form) devono essere copiati in staging, anonimizzati o mai?
 3. Serve un flusso di approvazione anche per la pubblicazione dei contenuti (redattore → caporedattore)?
 4. Quale budget massimo di spesa AI per utente o per mese?

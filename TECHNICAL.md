@@ -27,6 +27,9 @@
    azioni nell'audit.
 5. **Operazioni atomiche**: ogni richiesta che tocca più nodi è una transazione (FR-63);
    ogni release si completa per intero o viene annullata (NFR-05).
+6. **Indipendenza dal provider AI.** Gli strumenti del CMS e i permessi sono definiti una
+   volta sola e funzionano con qualsiasi modello: chiave API, abbonamento o modello locale.
+   Cambiare provider non cambia mai ciò che un agente può fare (FR-132).
 
 ---
 
@@ -45,7 +48,9 @@
 | Git server | Repository bare su volume + hook `pre-receive` | Semplice, locale, con controllo permessi anche lato git. |
 | Reverse proxy | Caddy | Host `*.localhost`, routing verso anteprime dinamiche. |
 | Email (locale) | Mailpit | Inviti e recupero password in sviluppo. |
-| AI | Anthropic API: Claude Agent SDK (sviluppatore), Messages API con tool use (contenuti) | Modello configurabile per agente (FR-10). Default: `claude-opus-5-5` per l'agente sviluppatore, `claude-sonnet-5` per l'agente contenuti. |
+| AI — chiavi API | Livello provider proprio (`packages/ai`) con gli SDK ufficiali: `@anthropic-ai/sdk`, `openai`, `@google/genai`; adattatore generico compatibile OpenAI per Mistral, OpenRouter, DeepSeek, Ollama, LM Studio, vLLM | Più provider, scelta per ruolo (FR-120, FR-121). Vedi §7. |
+| AI — abbonamenti | CLI ufficiali dei provider, non modificate, in modalità non interattiva: Claude Code (`claude -p`), Codex CLI, Gemini CLI | Uso dei piani fissi (§7.4). |
+| AI — strumenti | Server MCP interno (`@modelcontextprotocol/sdk`) | Stessi strumenti e stessi permessi per ogni provider. |
 | Validazione | Zod | Input degli strumenti AI, API, configurazioni. |
 | Autenticazione | Modulo proprio: sessioni server-side, `argon2id`, TOTP (`otplib`) | Pochi requisiti, controllo totale, nessuna dipendenza esterna. |
 | Test | Vitest, fast-check (property test), Playwright | Unit, motore permessi, end-to-end. |
@@ -71,7 +76,7 @@
   │      ▼                                             │               │             │
   │  worker (pg-boss) ── builder ── git (bare repo) ───┼───────────────┤             │
   │      │                                             │               │             │
-  │      └──► agent-runner (Claude Agent SDK, sandbox) │               │             │
+  │      └──► agent-runner (motori AI + CLI, sandbox)  │               │             │
   └───────────────────────────────────────────────────┼───────────────┼─────────────┘
                                                       │               │
   ┌────────────── net: prod ─────────────┐   ┌────────┴── net: staging ─────────────┐
@@ -80,7 +85,7 @@
   │ minio (bucket: prod)                 │   │   app_cs_<id>…)                      │
   └──────────────────────────────────────┘   │ minio (bucket: staging)              │
                                              └──────────────────────────────────────┘
-  egress-proxy: unica uscita verso internet (api.anthropic.com, registry npm su autorizzazione)
+  egress-proxy: unica uscita verso internet (endpoint dei provider AI configurati, registry npm su autorizzazione)
 ```
 
 ### 3.1 Servizi
@@ -88,9 +93,9 @@
 | Servizio | Ruolo | Reti | Note di sicurezza |
 |---|---|---|---|
 | `caddy` | Reverse proxy | tutte | Unico servizio esposto sull'host. |
-| `console` | Chat, admin, API, motore permessi, agente contenuti | control, prod (solo contenuti), staging | Ha la chiave Anthropic. Non ha credenziali di scrittura sul codice di prod. |
+| `console` | Chat, admin, API, motore permessi, agente contenuti, **gateway AI**, server MCP degli strumenti | control, prod (solo contenuti), staging | Unico servizio che decifra le chiavi API dei provider. Non ha credenziali di scrittura sul codice di prod. |
 | `worker` | Esegue i job: controlli, build, release, sincronizzazioni | control, prod, staging | Unico servizio con i ruoli DB di migrazione in prod. |
-| `agent-runner` | Esegue l'agente sviluppatore in sandbox | control (solo API interna del worker), egress | **Nessun** accesso alle reti prod. Utente non root, filesystem limitato al workspace. |
+| `agent-runner` | Esegue l'agente sviluppatore in sandbox, con il motore nativo o con una CLI in abbonamento | control (solo gateway AI e server MCP), egress | **Nessun** accesso alle reti prod e **nessuna chiave API**. Utente non root, filesystem limitato al workspace e al proprio profilo CLI. |
 | `builder` | Build di artefatti e test in un container usa e getta | staging | Nessuna credenziale di prod. |
 | `git` | Repository bare del sito + hook | control | Hook `pre-receive` che verifica i permessi sui percorsi (difesa in profondità). |
 | `postgres-core` | DB della piattaforma | control | Ruoli distinti per console, worker e audit. |
@@ -102,6 +107,7 @@
 | `minio` | Asset | prod, staging | Bucket e credenziali separati per ambiente. |
 | `egress-proxy` | Uscita verso internet con allowlist | egress | FR-111. |
 | `mailpit` | SMTP locale | control | |
+| `ollama` *(opzionale)* | Modelli locali | control | Attivabile con il profilo Compose `local-ai`. |
 
 ### 3.2 Volumi
 
@@ -113,6 +119,7 @@
 | `releases` | Artefatti di build: `releases/<release_id>/`, più i puntatori `blue` e `green` |
 | `backups` | Dump pre-migrazione (FR-56) |
 | `minio-data` | Asset |
+| `cli-auth` | Profili di login delle CLI in abbonamento, una cartella per utente (`cli-auth/<uid>/<provider>`). Montato **solo** in `agent-runner`. |
 
 ---
 
@@ -128,9 +135,12 @@ ai-cms/
 │   ├── db/                   schema Drizzle di cms_core, migrazioni, seed
 │   ├── tree/                 servizio nodi: CRUD sull'albero, sempre tramite authz
 │   ├── content/              modello a blocchi, versioni, pubblicazione, sanitizzazione
+│   ├── ai/                   livello provider: motori chat (API/locali), motori CLI,
+│   │                         gateway, instradamento e riserve, consumi
+│   ├── mcp-tools/            strumenti del CMS (Zod) + server MCP
 │   ├── agents/
-│   │   ├── content-agent/    strumenti e prompt dell'agente contenuti
-│   │   └── dev-agent/        wrapper del Claude Agent SDK, hook sui permessi
+│   │   ├── content-agent/    prompt e configurazione dell'agente contenuti
+│   │   └── dev-agent/        motore nativo di coding, hook sui permessi per le CLI
 │   ├── pipeline/             definizione dei controlli e della release
 │   ├── audit/                scrittura append-only con catena di hash
 │   ├── auth/                 sessioni, password, TOTP, token API
@@ -508,12 +518,142 @@ Per le operazioni dei visitatori valgono le regole scritte nel codice del sito, 
 
 ---
 
-## 7. Agenti AI
+## 7. Agenti AI e provider
 
-### 7.1 Agente contenuti (in `console`)
+### 7.1 Panoramica
 
-Usa la Messages API con tool use. Gli strumenti sono funzioni tipizzate con Zod;
-ciascuna dichiara il permesso che richiede e passa da `tree` / `content`:
+```
+                 ┌────────────── packages/mcp-tools ──────────────┐
+                 │ strumenti CMS (Zod) → authz → tree/content/…   │
+                 └───────▲───────────────────────────▲────────────┘
+                         │ chiamata diretta           │ MCP (HTTP interno, token per sessione)
+        ┌────────────────┴─────────┐      ┌───────────┴──────────────────────┐
+        │ Motore NATIVO             │      │ Motore CLI (abbonamento)         │
+        │ il nostro ciclo agente    │      │ Claude Code / Codex / Gemini CLI │
+        │ su un ChatEngine          │      │ con login personale dell'utente  │
+        └────────────┬──────────────┘      └───────────┬──────────────────────┘
+                     │                                 │ diretto verso il provider
+                     ▼                                 ▼
+        gateway AI (console): chiavi, consumi,     api del provider (piano fisso)
+        limiti di spesa, riserve
+                     │
+        ┌────────────┼──────────────┬──────────────────────┐
+        ▼            ▼              ▼                      ▼
+    anthropic      openai        google        openai-compatible
+                                              (Mistral, OpenRouter, DeepSeek,
+                                               Ollama, LM Studio, vLLM…)
+```
+
+Due idee reggono tutto:
+
+1. **Gli strumenti sono uno solo.** Ogni strumento del CMS è definito una volta in
+   `packages/mcp-tools`, con schema Zod e permesso richiesto. Il motore nativo li chiama
+   direttamente; le CLI li ricevono tramite un **server MCP** interno. I permessi vengono
+   verificati lato server in entrambi i casi (FR-132).
+2. **Due tipi di motore.** Il *motore nativo* gira il ciclo agente sul nostro codice e
+   funziona con qualsiasi modello via API o locale. Il *motore CLI* delega il ciclo a una
+   CLI ufficiale e permette di usare gli abbonamenti.
+
+### 7.2 Motori chat (chiavi API e modelli locali)
+
+```ts
+interface ChatEngine {
+  provider: 'anthropic' | 'openai' | 'google' | 'openai-compatible';
+  capabilities(model: string): Promise<ModelCaps>;   // tools, vision, contesto, streaming
+  stream(req: ChatRequest): AsyncIterable<ChatEvent>; // text | tool_call | usage | done
+}
+
+interface ChatRequest {
+  model: string;
+  system: string;
+  messages: ChatMessage[];        // formato normalizzato del CMS
+  tools: ToolSpec[];              // JSON Schema generato da Zod
+  maxOutputTokens?: number;
+}
+```
+
+- Un **adattatore per provider**, scritto con l'SDK ufficiale, traduce messaggi e strumenti
+  nel formato del provider e normalizza le risposte in `ChatEvent`.
+- Le funzioni specifiche utili vengono sfruttate dove esistono (es. prompt caching di
+  Anthropic), senza cambiare l'interfaccia.
+- L'adattatore `openai-compatible` richiede solo `baseUrl` e chiave, e copre la maggior parte
+  dei provider minori e dei modelli locali.
+- `capabilities` arriva dalle API dei modelli quando disponibili, altrimenti da una tabella
+  di configurazione modificabile. Un ruolo che richiede strumenti rifiuta modelli senza tool
+  calling (FR-124).
+
+**Gateway AI.** Tutte le chiamate via chiave API passano dal `console`:
+
+- decifra la chiave solo al momento della chiamata (le chiavi stanno cifrate in
+  `/system/secrets/ai/*`, FR-127);
+- registra i consumi in `ai_usage` e applica i limiti di spesa (FR-129, FR-130);
+- gestisce errori, limiti di frequenza e passaggio alla riserva (FR-122).
+
+Così `agent-runner` non possiede mai una chiave API, anche quando usa il motore nativo.
+
+### 7.3 Server MCP degli strumenti
+
+- Esposto dal `console` solo sulla rete `control`, con trasporto HTTP.
+- Ogni esecuzione di un agente riceve un **token di sessione** di breve durata che contiene
+  il `Principal`: utente, profilo agente, ambiente, changeset, eventuale scope (FR-86).
+- Il server rifiuta qualsiasi chiamata senza token valido e registra tutto nell'audit
+  con provider e modello usati.
+
+### 7.4 Abbonamenti (motore CLI)
+
+**Come funziona.** Nell'immagine di `agent-runner` sono installate le CLI ufficiali,
+**senza modifiche**. Per ogni esecuzione il CMS avvia la CLI in modalità non interattiva
+con output JSON, ad esempio per Claude Code:
+
+```bash
+CLAUDE_CONFIG_DIR=/cli-auth/<uid>/claude \
+claude -p "<richiesta>" \
+  --output-format stream-json --verbose \
+  --mcp-config /run/cms/mcp.json \
+  --permission-mode default \
+  --resume <sessione>              # per continuare la conversazione
+```
+
+Il `worker` legge lo stream JSON e lo inoltra alla chat del CMS.
+
+**Login.** Ogni utente collega il **proprio** abbonamento con la procedura ufficiale del
+provider, che salva le credenziali nel suo profilo in `cli-auth/<uid>/<provider>`:
+
+```bash
+# fase 1, da terminale
+docker compose exec -it agent-runner cms-connect claude-code --user <username>
+```
+
+Il comando apre il login della CLI; l'autenticazione si completa sul sito del provider.
+Il CMS non riceve e non salva mai credenziali o token dell'account (FR-126). Il volume
+`cli-auth` è montato solo in `agent-runner`.
+
+**Regole d'uso** (dai termini di Anthropic per Claude Code; per le altre CLI vanno verificati
+i termini del provider prima di abilitarle):
+
+| Consentito | Non consentito |
+|---|---|
+| Un utente fa il login con il proprio abbonamento nella CLI ufficiale non modificata | Condividere un abbonamento tra più utenti del CMS (FR-125) |
+| Usare la CLI per il lavoro che l'utente avvia dalla chat | Usare le credenziali dell'abbonamento dentro il nostro codice, in un SDK o nel gateway |
+| | Chiedere all'utente username, password o token dell'account |
+
+Conseguenze nel design:
+
+- il motore CLI gira **sempre** con il profilo dell'utente che ha avviato la richiesta;
+  se l'utente non ha un abbonamento collegato, si usa la riserva o si mostra un errore;
+- i lavori automatici in background (revisione AI in pipeline, traduzioni in blocco)
+  usano per default una chiave API o un modello locale, non l'abbonamento: i limiti dei
+  piani presuppongono un uso individuale ordinario;
+- il Claude Agent SDK si usa **solo** con chiave API, mai con il login dell'abbonamento.
+
+**Limiti del piano.** Quando la CLI segnala il limite raggiunto, la connessione passa allo
+stato `rate_limited` fino all'orario di ripristino indicato, e il ruolo usa la riserva (FR-122).
+
+### 7.5 Agente contenuti
+
+- **Motore:** nativo per default. Con una CLI in abbonamento, tutti gli strumenti nativi
+  della CLI (file, shell, web) sono disattivati e sono consentiti solo gli strumenti MCP del CMS.
+- **Strumenti** (definiti in `packages/mcp-tools`):
 
 | Strumento | Permesso richiesto |
 |---|---|
@@ -533,40 +673,91 @@ ciascuna dichiara il permesso che richiede e passa da `tree` / `content`:
 - `expectedVersion` realizza la concorrenza ottimistica: se il nodo è cambiato nel
   frattempo, lo strumento restituisce un conflitto e l'agente propone l'unione (FR-64).
 
-### 7.2 Agente sviluppatore (in `agent-runner`)
+### 7.6 Agente sviluppatore
 
-- Basato sul **Claude Agent SDK**. Il workspace è un `git worktree` del ramo `cs/<id>`.
-- Gli strumenti predefiniti dell'SDK (lettura, scrittura, modifica file, shell) sono
-  filtrati da un hook `PreToolUse` / `canUseTool`:
-  - lettura e scrittura di file → percorso convertito in nodo, poi `authz.check`;
-  - la shell accetta solo comandi in allowlist (`pnpm tsc`, `pnpm test`, `pnpm lint`,
-    `pnpm drizzle-kit generate`, `git status`, `git diff`);
-  - `pnpm add` richiede che l'utente abbia `CAP_DEPENDENCY_ADD` (FR-37), altrimenti
-    l'agente produce una richiesta di approvazione.
-- Strumenti aggiuntivi: `run_checks()`, `get_check_results()`, `query_staging_db(sql)`
-  (sola lettura, sul DB del changeset), `open_preview()`.
-- Il container non ha variabili d'ambiente di produzione, non vede le reti prod e
-  raggiunge internet solo tramite `egress-proxy`.
-- Al termine di ogni turno l'agente fa un commit sul ramo, con autore = utente e trailer
-  `Agent: dev-agent` e `Conversation: <id>`.
+Il workspace è sempre un `git worktree` del ramo `cs/<id>` dentro `agent-runner`.
 
-### 7.3 Profili agente
+**Con il motore nativo** (chiave API o modello locale) l'agente ha strumenti di coding
+nostri, tutti controllati da `authz`: `list_files`, `read_file`, `write_file`, `edit_file`,
+`search`, `run(command)`, più gli strumenti CMS e `run_checks()`, `get_check_results()`,
+`query_staging_db(sql)` (sola lettura sul DB del changeset), `open_preview()`.
 
-Un profilo è una maschera di permessi per ambiente e percorso, salvata in
-`/system/agents/<nome>` (modificabile con `CAP_AGENT_CONFIG`):
+**Con il motore CLI** (abbonamento) la CLI usa i propri strumenti su file e shell, limitati così:
+
+| Livello | Claude Code | Altre CLI |
+|---|---|---|
+| Configurazione | `settings.json` generato nel workspace con regole allow/deny sugli strumenti | Opzioni di sandbox e approvazione della CLI |
+| Controllo per azione | Hook `PreToolUse` che chiama `authz` per ogni lettura, scrittura o comando | — |
+| Container | Solo workspace e profilo CLI montati; rete solo verso il provider e il server MCP | uguale |
+| Commit | Hook git `pre-receive` (§6.6) | uguale |
+| Pipeline | Controllo `permissions` (§8.2) | uguale |
+
+Anche quando una CLI offre meno punti di controllo, **nessun file non autorizzato arriva
+in un changeset**: l'hook git e la pipeline lo bloccano comunque.
+
+**Regole comuni:**
+
+- la shell accetta solo comandi in allowlist (`pnpm tsc`, `pnpm test`, `pnpm lint`,
+  `pnpm drizzle-kit generate`, `git status`, `git diff`);
+- `pnpm add` richiede che l'utente abbia `CAP_DEPENDENCY_ADD` (FR-37), altrimenti
+  l'agente produce una richiesta di approvazione;
+- al termine di ogni turno si fa un commit sul ramo, con autore = utente e trailer
+  `Agent: dev-agent`, `AI: <connessione>/<modello>`, `Conversation: <id>`.
+
+### 7.7 Configurazione: connessioni, ruoli e profili
+
+Tutto vive nell'albero, sotto `/system/ai`, ed è modificabile con `CAP_AGENT_CONFIG`.
+
+**Connessioni** (`/system/ai/connections/<id>`):
+
+```jsonc
+{ "id": "claude-sub",    "type": "subscription", "cli": "claude-code" }
+{ "id": "anthropic-key", "type": "api",   "provider": "anthropic",
+  "secret": "/system/secrets/ai/anthropic", "scope": "shared" }        // o "personal" (FR-128)
+{ "id": "openrouter",    "type": "api",   "provider": "openai-compatible",
+  "baseUrl": "https://openrouter.ai/api/v1", "secret": "/system/secrets/ai/openrouter" }
+{ "id": "ollama",        "type": "local", "provider": "openai-compatible",
+  "baseUrl": "http://ollama:11434/v1" }
+```
+
+**Ruoli** (`/system/ai/roles/<ruolo>`), con modello principale e riserve in ordine:
+
+```jsonc
+{
+  "role": "dev-agent",
+  "primary":  { "connection": "claude-sub" },
+  "fallback": [{ "connection": "anthropic-key", "model": "claude-opus-5-5" }],
+  "requires": ["tools"]
+}
+```
+
+Ruoli previsti: `content-agent`, `dev-agent`, `ai-review`, `translate`, `alt-text`.
+
+**Profili agente** (`/system/agents/<nome>`): la maschera di permessi, indipendente dal modello:
 
 ```jsonc
 {
   "name": "content-agent",
-  "model": "claude-sonnet-5",
   "envs": ["prod", "staging"],
   "allow": [{ "path": "site.**", "perms": "rlxwcdp", "storage": ["db", "s3"] }],
-  "deny":  [{ "path": "system.**", "perms": "m" }],
-  "budget": { "monthlyUsd": 50 }
+  "deny":  [{ "path": "system.**", "perms": "m" }]
 }
 ```
 
 I permessi dell'agente sono `permessi_utente ∩ profilo`, applicati al passo 2 dell'algoritmo.
+
+**Consumi** (`ai_usage`): utente, ruolo, connessione, modello, tipo (api, subscription,
+local), token in ingresso e uscita, costo stimato (da una tabella prezzi modificabile), esito.
+
+### 7.8 Fase 1
+
+Per partire semplici:
+
+- **una sola connessione** usata per tutti i ruoli, scelta al primo avvio;
+- adattatori implementati per primi: **Claude Code** (abbonamento), **Anthropic** (API) e
+  **openai-compatible** (che copre subito OpenRouter, Mistral, DeepSeek e Ollama);
+- dopo: adattatori nativi OpenAI e Google, CLI Codex e Gemini, riserve, limiti di spesa,
+  cruscotto consumi.
 
 ---
 
@@ -576,9 +767,9 @@ I permessi dell'agente sono `permessi_utente ∩ profilo`, applicati al passo 2 
 
 ```
 draft ──► checking ──► checks_failed ──(agente corregge)──► checking
-                  └──► ready ──► in_review ──► changes_requested ──► draft
-                                          └──► approved ──► releasing ──► released
-                                                                    └──► release_failed
+                  └──► ready ──┬──(clic "Approva e pubblica")──► releasing ──► released
+                               │                                          └──► release_failed
+                               └──(rifiuto con commento)──► draft
 released ──► rolled_back
 ```
 
@@ -593,7 +784,7 @@ Eseguiti dal `worker` nel container `builder`, sul commit di testa del changeset
 | 3 | `lint` | ESLint con regole di sicurezza del sito: niente `process.env` fuori da `@site/config`, niente `child_process`, `fs` o `eval`, niente `dangerouslySetInnerHTML` fuori dai componenti approvati. |
 | 4 | `deps` | Il lockfile non contiene dipendenze nuove non approvate. |
 | 5 | `unit` | Vitest |
-| 6 | `migration` | Applicazione sul DB del changeset. Analisi dell'SQL: `DROP`, `RENAME`, `ALTER … TYPE` o `NOT NULL` senza default impostano `destructive_migration=true`, che richiede una seconda approvazione. |
+| 6 | `migration` | Applicazione sul DB del changeset. Analisi dell'SQL: `DROP`, `RENAME`, `ALTER … TYPE` o `NOT NULL` senza default impostano `destructive_migration=true`: il pulsante di approvazione mostra un avviso e chiede una conferma esplicita. |
 | 7 | `build` | `next build`, che produce l'artefatto candidato. |
 | 8 | `e2e` | Playwright sulle pagine toccate e sulle pagine critiche (home, 404). |
 | 9 | `a11y` | axe-core sulle pagine toccate (NFR-07). |
@@ -615,7 +806,10 @@ riprovare fino a `maxAutoFixAttempts` volte (default 3) (FR-42).
 
 Eseguita dal `worker` con un advisory lock globale, così c'è una sola release alla volta:
 
-1. Verifica che `approved_by` abbia `CAP_RELEASE_APPROVE` e sia diverso dall'autore (FR-52).
+Parte subito dopo il clic su **"Approva e pubblica"** (FR-51).
+
+1. Verifica che chi approva abbia `CAP_RELEASE_APPROVE`. Se l'amministratore ha attivato la
+   separazione dei compiti (FR-52, disattivata di default), verifica anche che non sia l'autore.
 2. Rebase di `cs/<id>` su `main`. Se `main` è cambiato dall'ultima verifica, **i controlli
    vengono rieseguiti** e la release attende.
 3. Build dell'artefatto finale in `releases/<release_id>/`.
@@ -632,8 +826,7 @@ precedente, stato `release_failed` (NFR-05).
 **Regola sulle migrazioni: prima si aggiunge, poi si toglie.** In una release si
 aggiungono colonne e tabelle; le rimozioni vanno in una release successiva, quando il
 codice non le usa più. Così il rollback del codice (FR-57) non richiede mai di ripristinare
-il DB. Le migrazioni distruttive restano possibili, ma con doppia approvazione e backup
-obbligatorio.
+il DB. Le migrazioni distruttive restano possibili, con conferma esplicita e backup obbligatorio.
 
 ### 8.5 Sincronizzazione produzione → staging
 
@@ -680,7 +873,7 @@ Job `staging.sync` (richiede `CAP_STAGING_SYNC`, su richiesta o pianificato):
 
 | Segreto | console | worker | agent-runner | site-prod | site-staging |
 |---|---|---|---|---|---|
-| `anthropic_api_key` | ✓ | | ✓ | | |
+| `ai_keys_master` (cifra le chiavi API in `/system/secrets/ai`) | ✓ | | | | |
 | `pg_core_*` | ✓ | ✓ | | | |
 | `pg_prod_migrator` | | ✓ | | | |
 | `pg_prod_app` | | | | ✓ | |
@@ -691,6 +884,8 @@ Job `staging.sync` (richiede `CAP_STAGING_SYNC`, su richiesta o pianificato):
 - I segreti applicativi del sito (es. chiave di un servizio esterno) sono nodi in
   `/system/secrets`, cifrati nel DB, iniettati a runtime nel sito tramite `@site/config`.
   Gli agenti non possono leggerli (I4).
+- I profili di login delle CLI in abbonamento stanno nel volume `cli-auth`, gestiti dalle
+  CLI stesse; il CMS non li legge.
 
 ---
 
@@ -699,9 +894,11 @@ Job `staging.sync` (richiede `CAP_STAGING_SYNC`, su richiesta o pianificato):
 ### 12.1 Avvio
 
 ```bash
-cp .env.example .env              # inserire ANTHROPIC_API_KEY
+cp .env.example .env
 docker compose -f docker/compose.yml up -d
 docker compose logs console | grep "root password"
+# poi, dalla console: collegare una chiave API, oppure un abbonamento con
+docker compose exec -it agent-runner cms-connect claude-code --user root
 ```
 
 | URL | Servizio |
@@ -748,10 +945,10 @@ docker compose logs console | grep "root password"
 | **M0 — Fondamenta** | Monorepo, Docker Compose, `cms_core`, auth, seed, audit | 1 |
 | **M1 — Permessi** | `authz` completo, servizio `tree`, UI tipo `ls -l`/`getfacl`, "Perché?", test | 7, 8 |
 | **M2 — Contenuti** | Modello a blocchi, versioni, pubblicazione, sito con catch-all, revalidazione | — |
-| **M3 — Agente contenuti** | Chat, strumenti, piani transazionali, conflitti | 2, 3 |
+| **M3 — Provider e agente contenuti** | `packages/ai` (Claude Code, Anthropic, openai-compatible), gateway, server MCP, chat, strumenti, piani transazionali, conflitti | 2, 3 |
 | **M4 — Staging e agente sviluppatore** | git + hook, agent-runner, changeset, DB e anteprime per changeset, controlli | 4 |
 | **M5 — Release** | Revisione, approvazione, blue/green, backup, rollback | 5, 6 |
-| **M6 — Rifinitura** | Sync prod → staging, "Chi può?", token API, TOTP, verifica audit | 9 |
+| **M6 — Rifinitura** | Sync prod → staging, "Chi può?", token API, TOTP, verifica audit, altri provider e CLI, riserve, consumi | 9, 10 |
 
 ---
 
@@ -761,7 +958,10 @@ docker compose logs console | grep "root password"
 |---|---|
 | Il codice generato introduce vulnerabilità che i controlli non vedono | Revisione umana obbligatoria, runtime in sola lettura con uscita di rete limitata, regole ESLint dedicate, revisore AI. |
 | Allineamento tra albero dei nodi e file git | Manifest come fonte di verità, controllo `permissions` nella pipeline, job di riconciliazione. |
-| Costo delle chiamate AI | Budget per profilo agente, prompt caching, modello più leggero per l'agente contenuti. |
+| Costo delle chiamate AI | Abbonamenti a prezzo fisso per l'uso interattivo, limiti di spesa per le chiavi API, modelli locali per i compiti semplici. |
+| Termini d'uso degli abbonamenti | Solo CLI ufficiali non modificate, login personale per utente, niente condivisione, niente lavori in background sugli abbonamenti (§7.4). Verificare i termini di ogni provider prima di abilitarne la CLI. |
+| Le CLI cambiano formato di output o opzioni | Adattatori CLI isolati e versioni delle CLI fissate nell'immagine, con test di integrazione a ogni aggiornamento. |
+| Qualità diversa tra modelli | Lo stesso codice passa sempre dagli stessi controlli (§8.2); il ruolo indica le capacità minime richieste. |
 | Build lente in locale | Cache di Turborepo e della build di Next.js condivise tra changeset. |
 | `egress-proxy` e registry npm | Mirror locale opzionale (Verdaccio) per build riproducibili offline. |
 | Passaggio futuro al cloud | I servizi sono già separati per rete e segreti: la migrazione a Kubernetes o a servizi gestiti cambia l'infrastruttura, non l'architettura. |
