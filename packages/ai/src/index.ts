@@ -22,3 +22,13 @@ export {
   lookupCapabilities,
   type CapabilityEntry,
 } from './capabilities.ts';
+export {
+  AnthropicEngine,
+  mapStopReason as mapAnthropicStopReason,
+  normalizeAnthropicStream,
+  toAnthropicMessages,
+  toAnthropicRequest,
+  toAnthropicTools,
+  type AnthropicClientLike,
+  type AnthropicEngineOptions,
+} from './anthropic.ts';
