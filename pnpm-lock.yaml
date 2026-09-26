@@ -50,12 +50,21 @@ importers:
       '@ai-cms/authz':
         specifier: workspace:*
         version: link:../../packages/authz
+      '@ai-cms/content':
+        specifier: workspace:*
+        version: link:../../packages/content
       '@ai-cms/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@ai-cms/html-rules':
+        specifier: workspace:*
+        version: link:../../packages/html-rules
       '@ai-cms/mcp-tools':
         specifier: workspace:*
         version: link:../../packages/mcp-tools
+      '@ai-cms/tree':
+        specifier: workspace:*
+        version: link:../../packages/tree
       '@ai-cms/widget':
         specifier: workspace:*
         version: link:../../packages/widget

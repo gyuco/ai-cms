@@ -15,9 +15,12 @@
     "@ai-cms/audit": "workspace:*",
     "@ai-cms/auth": "workspace:*",
     "@ai-cms/authz": "workspace:*",
+    "@ai-cms/content": "workspace:*",
     "@ai-cms/db": "workspace:*",
-    "@ai-cms/widget": "workspace:*",
+    "@ai-cms/html-rules": "workspace:*",
     "@ai-cms/mcp-tools": "workspace:*",
+    "@ai-cms/tree": "workspace:*",
+    "@ai-cms/widget": "workspace:*",
     "next": "^16.3.6",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"

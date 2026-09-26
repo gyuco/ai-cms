@@ -1,9 +1,9 @@
-import { ConfigError, createGateway, GatewayError, type Gateway } from '@ai-cms/ai-config';
-import { AuthzError, type Principal } from '@ai-cms/authz';
+import { createGateway, type Gateway } from '@ai-cms/ai-config';
 import { readSecret } from '@ai-cms/db';
-import type { RequestContext } from './context.ts';
 import { db } from './db.ts';
-import { error } from './http.ts';
+import { serviceErrorResponse } from './errors.ts';
+
+export { principalOf } from './route.ts';
 
 let master: string | undefined;
 let gatewayInstance: Gateway | undefined;
@@ -23,20 +23,8 @@ export function gateway(): Gateway {
   return gatewayInstance;
 }
 
-/** The logged-in user as an authz principal (sessions exist only for active users). */
-export function principalOf(context: RequestContext): Principal {
-  const { uid, username } = context.session.user;
-  return { uid, username, status: 'active' };
-}
-
 /** Maps the errors of the AI configuration services to JSON responses. */
-export function aiErrorResponse(err: unknown): Response {
-  if (err instanceof AuthzError) return error(403, err.code, err.message);
-  if (err instanceof ConfigError || err instanceof GatewayError) {
-    return error(err.status, err.code, err.message);
-  }
-  throw err;
-}
+export const aiErrorResponse = serviceErrorResponse;
 
 export async function readJson(request: Request): Promise<Record<string, unknown> | null> {
   const body: unknown = await request.json().catch(() => null);

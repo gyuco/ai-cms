@@ -2,11 +2,11 @@
 import { h, render } from 'preact';
 import { act } from 'preact/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Me } from './api.ts';
+import type { WidgetContext } from './api.ts';
 import { App } from './app.tsx';
 import { STORAGE_KEY } from './storage.ts';
 
-const me: Me = {
+const me: WidgetContext = {
   user: {
     uid: 1,
     username: 'anna',
@@ -16,6 +16,8 @@ const me: Me = {
   },
   env: 'staging',
   csrfToken: 'csrf-1',
+  node: { path: '/site/pages/index', kind: 'page', exists: true, version: 1 },
+  page: { latestVersion: 1, publishedVersion: 1, hasDraft: false },
 };
 
 let container: HTMLElement;

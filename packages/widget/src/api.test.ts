@@ -1,5 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
-import { ApiError, fetchMe, logout, requestEnvSwitch, type Me } from './api.ts';
+import {
+  ApiError,
+  createApi,
+  fetchContext,
+  logout,
+  requestEnvSwitch,
+  withQuery,
+  type Me,
+  type WidgetContext,
+} from './api.ts';
 
 const me: Me = {
   user: {
@@ -16,17 +25,23 @@ const me: Me = {
 const jsonResponse = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 
-describe('fetchMe', () => {
-  it('returns the session', async () => {
-    const fetchFn = vi.fn(async () => jsonResponse(200, me));
-    expect(await fetchMe(fetchFn, { cookie: '' })).toEqual(me);
-    expect(fetchFn).toHaveBeenCalledWith('/_cms/api/auth/me', expect.anything());
+const context: WidgetContext = {
+  ...me,
+  node: { path: '/site/pages/chi-siamo', kind: 'page', exists: true, version: 3 },
+  page: { latestVersion: 2, publishedVersion: 1, hasDraft: true },
+};
+
+describe('fetchContext', () => {
+  it('returns the session and the page', async () => {
+    const fetchFn = vi.fn(async () => jsonResponse(200, context));
+    expect(await fetchContext('/chi-siamo', fetchFn, { cookie: '' })).toEqual(context);
+    expect(fetchFn).toHaveBeenCalledWith('/_cms/api/context?path=%2Fchi-siamo', expect.anything());
   });
 
   it('returns null and expires the cms_ui cookie on 401', async () => {
     const doc = { cookie: 'cms_ui=1' };
     const fetchFn = vi.fn(async () => jsonResponse(401, { error: { code: 'unauthenticated' } }));
-    expect(await fetchMe(fetchFn, doc)).toBeNull();
+    expect(await fetchContext('/', fetchFn, doc)).toBeNull();
     expect(doc.cookie).toMatch(/^cms_ui=;/);
     expect(doc.cookie).toContain('Path=/');
     expect(doc.cookie).toContain('Expires=Thu, 01 Jan 1970');
@@ -35,7 +50,7 @@ describe('fetchMe', () => {
   it('throws on other errors, keeping the cookie', async () => {
     const doc = { cookie: 'cms_ui=1' };
     const fetchFn = vi.fn(async () => jsonResponse(500, { error: { message: 'Guasto' } }));
-    await expect(fetchMe(fetchFn, doc)).rejects.toThrow('Guasto');
+    await expect(fetchContext('/', fetchFn, doc)).rejects.toThrow('Guasto');
     expect(doc.cookie).toBe('cms_ui=1');
   });
 });
@@ -68,5 +83,33 @@ describe('logout', () => {
     const fetchFn = vi.fn<typeof fetch>(async () => jsonResponse(401, {}));
     await expect(logout(me, fetchFn)).resolves.toBeUndefined();
     expect(new Headers(fetchFn.mock.calls[0]![1]?.headers).get('x-csrf-token')).toBe('csrf-1');
+  });
+});
+
+describe('createApi', () => {
+  it('builds query strings without empty values', () => {
+    expect(withQuery('/audit', { actor: 'anna', action: '', cursor: 10, path: null })).toBe(
+      '/audit?actor=anna&cursor=10',
+    );
+    expect(withQuery('/users')).toBe('/users');
+  });
+
+  it('sends JSON with the CSRF token and reports errors with their code', async () => {
+    const fetchFn = vi.fn<typeof fetch>(async () => jsonResponse(200, { ok: true }));
+    const api = createApi('csrf-9', fetchFn);
+    expect(await api.send('PATCH', '/pages', { path: '/x' })).toEqual({ ok: true });
+    const [path, init] = fetchFn.mock.calls[0]!;
+    expect(path).toBe('/_cms/api/pages');
+    expect(init?.method).toBe('PATCH');
+    expect(new Headers(init?.headers).get('x-csrf-token')).toBe('csrf-9');
+    expect(JSON.parse(init?.body as string)).toEqual({ path: '/x' });
+
+    fetchFn.mockResolvedValueOnce(
+      jsonResponse(409, { error: { code: 'conflict', message: 'Conflitto' } }),
+    );
+    await expect(api.get('/pages', { path: '/x' })).rejects.toEqual(
+      new ApiError(409, 'Conflitto', 'conflict'),
+    );
+    expect(fetchFn.mock.calls[1]![0]).toBe('/_cms/api/pages?path=%2Fx');
   });
 });
