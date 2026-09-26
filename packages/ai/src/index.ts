@@ -32,3 +32,13 @@ export {
   type AnthropicClientLike,
   type AnthropicEngineOptions,
 } from './anthropic.ts';
+export {
+  OpenAICompatibleEngine,
+  mapFinishReason,
+  normalizeOpenAIStream,
+  toOpenAIMessages,
+  toOpenAIRequest,
+  toOpenAITools,
+  type OpenAIClientLike,
+  type OpenAICompatibleEngineOptions,
+} from './openai-compatible.ts';
