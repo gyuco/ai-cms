@@ -22,6 +22,10 @@ make help    # tutti i comandi
 make root-password   # password di root generata al primo avvio
 ```
 
+Per usare il proprio abbonamento Claude (Pro, Max, Team) con gli agenti, ognuno collega il
+**proprio** account con `make connect-claude-code user=<username>`: si apre il login ufficiale
+di Claude Code e le credenziali restano solo nel container `agent-runner`.
+
 Al primo avvio `cms-api` applica le migrazioni e crea l'utente `root` con una password
 casuale, stampata una sola volta nei log e da cambiare al primo accesso.
 

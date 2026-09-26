@@ -7,6 +7,8 @@ RUN --mount=type=secret,id=extra_ca,required=false \
   && corepack enable \
   && with-ca npm install -g "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}"
 ENV USE_BUILTIN_RIPGREP=0
+# Links a user's own subscription: `cms-connect claude-code --user <username>` (TECHNICAL §7.4).
+COPY --chmod=755 docker/images/cms-connect /usr/local/bin/cms-connect
 RUN adduser -D -u 1001 agent \
   && mkdir -p /workspaces /cli-auth \
   && chown agent:agent /workspaces /cli-auth

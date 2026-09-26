@@ -1,0 +1,97 @@
+#!/bin/sh
+# Links a CMS user's own subscription to an official CLI (TECHNICAL §7.4).
+#
+#   cms-connect claude-code --user <username>            opens the official Claude Code login
+#   cms-connect claude-code --user <username> --status   tells whether a login is saved
+#
+# The login happens in the unmodified CLI, on the provider's site: the CMS never sees the
+# credentials (FR-126). They stay in <root>/<username>/claude, used as CLAUDE_CONFIG_DIR.
+set -eu
+export LC_ALL=C
+
+CLI_AUTH_ROOT="${CLI_AUTH_ROOT:-/cli-auth}"
+
+usage() {
+  echo "Uso: cms-connect claude-code --user <username> [--status]" >&2
+  exit 2
+}
+
+# Same rule as CMS usernames (packages/auth); it also keeps the path inside CLI_AUTH_ROOT.
+valid_username() {
+  case "$1" in
+    '' | *[!A-Za-z0-9._-]*) return 1 ;;
+    [A-Za-z0-9]*) ;;
+    *) return 1 ;;
+  esac
+  [ "${#1}" -ge 2 ] && [ "${#1}" -le 32 ]
+}
+
+[ $# -ge 1 ] || usage
+provider=$1
+shift
+case "$provider" in
+  claude-code) ;;
+  -h | --help) usage ;;
+  *)
+    echo "CLI non supportata: $provider (disponibile: claude-code)" >&2
+    exit 2
+    ;;
+esac
+
+user=""
+status=0
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --user)
+      [ $# -ge 2 ] || usage
+      user=$2
+      shift 2
+      ;;
+    --user=*)
+      user=${1#--user=}
+      shift
+      ;;
+    --status)
+      status=1
+      shift
+      ;;
+    *) usage ;;
+  esac
+done
+
+[ -n "$user" ] || usage
+if ! valid_username "$user"; then
+  echo "Nome utente non valido: usa da 2 a 32 tra lettere, cifre, punto, trattino e trattino basso, iniziando con una lettera o una cifra." >&2
+  exit 2
+fi
+
+dir="$CLI_AUTH_ROOT/$user/claude"
+
+if [ "$status" -eq 1 ]; then
+  # Only checks that the file exists: the credentials are never read.
+  if [ -s "$dir/.credentials.json" ]; then
+    echo "Claude Code: abbonamento collegato per $user."
+    exit 0
+  fi
+  echo "Claude Code: nessun abbonamento collegato per $user."
+  exit 1
+fi
+
+umask 077
+mkdir -p "$dir"
+chmod 700 "$CLI_AUTH_ROOT/$user" "$dir"
+
+cat <<EOF
+Collegamento dell'abbonamento Claude Code per $user.
+
+Si apre Claude Code: segui la procedura di login con il TUO account (se non parte da sola,
+scrivi /login). Se il browser mostra un codice, incollalo qui. Al termine scrivi /exit.
+Le credenziali restano in $dir e il CMS non le legge mai.
+Non collegare l'account di un'altra persona: un abbonamento non si condivide.
+
+EOF
+
+# The subscription login must be used, not an API key from the environment.
+unset ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN CLAUDE_CODE_OAUTH_TOKEN
+cd "$dir"
+CLAUDE_CONFIG_DIR="$dir" exec claude
