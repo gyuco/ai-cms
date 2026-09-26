@@ -1,5 +1,13 @@
 name: ai-cms
 
+# Outbound HTTPS for services that need it goes through egress-proxy.
+x-egress-env: &egress-env
+  HTTPS_PROXY: http://egress-proxy:3128
+  https_proxy: http://egress-proxy:3128
+  NO_PROXY: localhost,127.0.0.1,postgres-core,postgres-prod,postgres-staging,s3,mailpit,cms-api,site-prod,site-staging,previews,egress-proxy
+  no_proxy: localhost,127.0.0.1,postgres-core,postgres-prod,postgres-staging,s3,mailpit,cms-api,site-prod,site-staging,previews,egress-proxy
+  NODE_USE_ENV_PROXY: '1'
+
 x-postgres: &postgres
   image: postgres:17-alpine
   restart: unless-stopped
@@ -84,7 +92,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 20
-    networks: [control, prod, staging]
+    networks: [public, control, prod, staging]
 
   cms-api:
     image: ai-cms/cms-api
@@ -93,6 +101,7 @@ services:
       dockerfile: docker/images/cms-api.Dockerfile
     restart: unless-stopped
     environment:
+      <<: *egress-env
       CORE_DB_HOST: postgres-core
       S3_ENDPOINT: http://s3:8333
       SMTP_HOST: mailpit
@@ -153,6 +162,7 @@ services:
       dockerfile: docker/images/site-runtime.Dockerfile
     restart: unless-stopped
     environment:
+      <<: *egress-env
       CMS_ENV: prod
       CORE_DB_HOST: postgres-core
       APP_DB_HOST: postgres-prod
@@ -169,6 +179,7 @@ services:
     image: ai-cms/site-runtime
     restart: unless-stopped
     environment:
+      <<: *egress-env
       CMS_ENV: staging
       CORE_DB_HOST: postgres-core
       APP_DB_HOST: postgres-staging
@@ -183,11 +194,13 @@ services:
       context: ..
       dockerfile: docker/images/agent-runner.Dockerfile
     restart: unless-stopped
+    environment:
+      <<: *egress-env
     volumes:
       - workspaces:/workspaces
       - cli-auth:/cli-auth
     # No prod network and no API keys: see TECHNICAL §7.
-    networks: [control, egress]
+    networks: [control]
 
   builder:
     image: ai-cms/builder
@@ -196,13 +209,36 @@ services:
       dockerfile: docker/images/builder.Dockerfile
     # Started on demand by the worker (E11.2), not by `docker compose up`.
     profiles: [tools]
+    environment:
+      <<: *egress-env
     networks: [staging]
 
+  egress-proxy:
+    image: ai-cms/egress-proxy
+    build:
+      context: ..
+      dockerfile: docker/images/egress-proxy.Dockerfile
+    restart: unless-stopped
+    environment:
+      EGRESS_ALLOW: ${EGRESS_ALLOW:-.anthropic.com,.claude.ai,.claude.com,registry.npmjs.org}
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -q -O /dev/null http://127.0.0.1:3128/ 2>&1 | grep -q 405']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks: [egress, control, prod, staging]
+
+# Service networks are internal: nothing reaches the internet except through
+# egress-proxy, which only tunnels HTTPS to allowlisted hosts (FR-111).
 networks:
   control:
+    internal: true
   prod:
+    internal: true
   staging:
+    internal: true
   egress:
+  public:
 
 volumes:
   pg-core:
