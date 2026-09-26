@@ -4,12 +4,18 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./service": "./src/service/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@ai-cms/audit": "workspace:*",
+    "@ai-cms/authz": "workspace:*",
+    "@ai-cms/db": "workspace:*",
+    "@ai-cms/tree": "workspace:*",
+    "drizzle-orm": "^0.45.3",
     "sanitize-html": "^2.17.7",
     "zod": "^4.6.5"
   },

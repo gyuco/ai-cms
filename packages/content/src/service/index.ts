@@ -1,0 +1,27 @@
+// Server-side content services: they need the database, so they live behind the
+// `@ai-cms/content/service` entry point and stay out of the renderer's import graph.
+export {
+  diffVersions,
+  getContent,
+  insertVersion,
+  latestVersion,
+  listVersions,
+  normalizeForNode,
+  publish,
+  publishVersion,
+  publishedVersionId,
+  resolveVersion,
+  restoreVersion,
+  saveDraft,
+  unpublish,
+  unpublishNode,
+  type ContentSnapshot,
+  type ContentVersion,
+  type PublishHook,
+  type PublishOptions,
+  type PublishResult,
+  type SaveOptions,
+  type VersionDiff,
+  type VersionInfo,
+  type VersionRef,
+} from './versions.ts';

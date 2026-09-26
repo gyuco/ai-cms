@@ -1,6 +1,8 @@
 export * from './blocks.ts';
+export * from './diff.ts';
 export * from './documents.ts';
 export { BLOCK_ID_PATTERN, newBlockId } from './ids.ts';
+export { CONTENT_KINDS, isContentKind, normalizeBodyForKind, type ContentKind } from './kinds.ts';
 export { LIMITS } from './limits.ts';
 export { normalizeLayout, normalizePageBody, sanitizeBlocks } from './normalize.ts';
 export { sanitizeHtml } from './sanitize.ts';
