@@ -87,6 +87,10 @@ export type ChatEvent =
       /** Rate limits, overload, network errors: worth retrying or falling back (FR-122). */
       retryable?: boolean;
       aborted?: boolean;
+      /** The subscription plan limit was reached (CLI engines): the connection is `rate_limited`. */
+      rateLimited?: boolean;
+      /** When the plan limit resets, if the provider said so. */
+      resetsAt?: Date;
     };
 
 export interface ModelCaps {

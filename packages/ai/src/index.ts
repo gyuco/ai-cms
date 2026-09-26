@@ -50,3 +50,18 @@ export {
   type AgentStopReason,
   type RunAgentOptions,
 } from './agent.ts';
+export {
+  buildClaudeCodeArgs,
+  buildClaudeCodeEnv,
+  rateLimitMessage,
+  runClaudeCode,
+  streamClaudeCode,
+  type ClaudeCodeEvent,
+  type ClaudeCodeMcpConfig,
+  type ClaudeCodeMcpServer,
+  type ClaudeCodeOptions,
+  type ClaudeCodePermissionMode,
+  type ClaudeCodeResult,
+  type RateLimitInfo,
+  type RunClaudeCodeOptions,
+} from './claude-code.ts';
