@@ -44,3 +44,9 @@ export {
   type RevalidateBody,
   type RevalidationResult,
 } from './revalidate.ts';
+export {
+  contentSecurityPolicy,
+  generateNonce,
+  NONCE_HEADER,
+  SECURITY_HEADERS,
+} from './security.ts';

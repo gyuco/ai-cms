@@ -1,4 +1,13 @@
-import { SESSION_COOKIE, normalizePublicPath, pageNodeFromPath } from '@ai-cms/site-kit/data';
+import {
+  NONCE_HEADER,
+  SESSION_COOKIE,
+  contentSecurityPolicy,
+  fetchDraft,
+  generateNonce,
+  normalizePublicPath,
+  pageNodeFromPath,
+  siteEnv,
+} from '@ai-cms/site-kit/data';
 import { NextResponse, type NextRequest } from 'next/server';
 import { isPublishedPage } from './lib/page-index.ts';
 import { PATH_HEADER } from './lib/request.ts';
@@ -10,8 +19,9 @@ const NOT_A_PAGE =
 /**
  * Next.js 16 renders `notFound()` and errors thrown by a dynamic page as an empty error shell
  * that the browser fills in. For anonymous visitors the proxy answers those cases itself by
- * rewriting to prerendered pages, so the HTML served is complete and valid (TECHNICAL §11).
- * Signed-in users go through: they may see drafts (FR-150).
+ * rewriting to 404 and 503 pages that render without content, so the HTML served is complete
+ * and valid (TECHNICAL §11). For signed-in users a path that is not published may still have
+ * a draft (FR-150): cms-api is asked before answering 404.
  */
 async function pageStatus(request: NextRequest): Promise<'ok' | 'missing' | 'unavailable'> {
   const path = request.nextUrl.pathname;
@@ -19,34 +29,54 @@ async function pageStatus(request: NextRequest): Promise<'ok' | 'missing' | 'una
   if (request.method !== 'GET' && request.method !== 'HEAD') return 'ok';
   const publicPath = normalizePublicPath(path);
   if (!pageNodeFromPath(publicPath)) return 'missing';
-  if (request.cookies.has(SESSION_COOKIE)) return 'ok';
   try {
-    return (await isPublishedPage(publicPath)) ? 'ok' : 'missing';
+    if (await isPublishedPage(publicPath)) return 'ok';
   } catch {
     return 'unavailable';
   }
+  const session = request.cookies.get(SESSION_COOKIE)?.value;
+  if (!session) return 'missing';
+  const draft = await fetchDraft({ publicPath, env: siteEnv(), sessionToken: session });
+  // On errors the page decides (and falls back to the published content).
+  return draft.status === 'not-found' || draft.status === 'denied' ? 'missing' : 'ok';
+}
+
+/** Adds the CSP to a response. */
+function secured(response: NextResponse, csp: string): NextResponse {
+  response.headers.set('content-security-policy', csp);
+  return response;
 }
 
 export async function proxy(request: NextRequest) {
   const status = await pageStatus(request);
-  // Never trust the header from the client: it is ours only when the proxy sets it.
+
+  // A fresh nonce per request (E6.8). Next.js reads it from the request's CSP header and puts
+  // it on its own scripts; the layout reads `x-nonce` for the widget loader.
+  const nonce = generateNonce();
+  const csp = contentSecurityPolicy(nonce, { dev: process.env.NODE_ENV === 'development' });
   const requestHeaders = new Headers(request.headers);
+  requestHeaders.set(NONCE_HEADER, nonce);
+  requestHeaders.set('content-security-policy', csp);
+  // Never trust the path header from the client: it is ours only when the proxy sets it.
   requestHeaders.delete(PATH_HEADER);
+
   if (status === 'unavailable') {
-    return NextResponse.rewrite(new URL('/__cms/unavailable', request.url), {
+    const response = NextResponse.rewrite(new URL('/__cms/unavailable', request.url), {
       status: 503,
       headers: { 'retry-after': '30' },
       request: { headers: requestHeaders },
     });
+    return secured(response, csp);
   }
   requestHeaders.set(PATH_HEADER, normalizePublicPath(request.nextUrl.pathname));
   if (status === 'missing') {
-    return NextResponse.rewrite(new URL('/_not-found', request.url), {
+    const response = NextResponse.rewrite(new URL('/_not-found', request.url), {
       status: 404,
       request: { headers: requestHeaders },
     });
+    return secured(response, csp);
   }
-  return NextResponse.next({ request: { headers: requestHeaders } });
+  return secured(NextResponse.next({ request: { headers: requestHeaders } }), csp);
 }
 
 export const config = {

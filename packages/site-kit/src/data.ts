@@ -4,3 +4,4 @@ export * from './content.ts';
 export * from './paths.ts';
 export * from './preview.ts';
 export * from './revalidate.ts';
+export * from './security.ts';

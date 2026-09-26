@@ -8,6 +8,7 @@
     "./data": "./src/data.ts",
     "./document": "./src/document.tsx",
     "./paths": "./src/paths.ts",
+    "./security": "./src/security.ts",
     "./base.css": "./src/base.css"
   },
   "scripts": {

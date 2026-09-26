@@ -1,4 +1,4 @@
-import { DEFAULT_SETTINGS, pageLang } from '@ai-cms/site-kit';
+import { DEFAULT_SETTINGS, NONCE_HEADER, pageLang } from '@ai-cms/site-kit';
 import { headers } from 'next/headers';
 import type { ReactNode } from 'react';
 import '@ai-cms/site-kit/base.css';
@@ -34,7 +34,11 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
     <html lang={lang}>
       <body>
         {children}
-        <script dangerouslySetInnerHTML={{ __html: WIDGET_LOADER }} />
+        {/* The CSP only runs inline scripts with the request nonce (proxy.ts). */}
+        <script
+          nonce={requestHeaders.get(NONCE_HEADER) ?? undefined}
+          dangerouslySetInnerHTML={{ __html: WIDGET_LOADER }}
+        />
       </body>
     </html>
   );
