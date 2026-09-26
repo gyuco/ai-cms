@@ -229,7 +229,9 @@ services:
     environment:
       <<: *egress-env
       BUILDER_CONCURRENCY: '1'
-    secrets: [builder_token]
+      CORE_DB_HOST: postgres-core
+    # pg_core_site_ro reads only the published_content view (public data).
+    secrets: [builder_token, pg_core_site_ro]
     volumes:
       - workspaces:/data/workspaces:ro
       - artifacts:/data/artifacts
@@ -241,8 +243,9 @@ services:
     networks: [staging]
 
   # Changeset previews (E10.9): caddy routes cs-<id>.localhost here; one `next start` per
-  # changeset on the artifact written by the builder. No platform secret: the site connects to
-  # the changeset database with the site_app URL found in preview.json.
+  # changeset on the artifact written by the builder. The site connects to the changeset
+  # database with the site_app URL found in preview.json, and reads published content with
+  # the read-only pg_core_site_ro role.
   previews:
     image: ai-cms/previews
     build:
@@ -253,7 +256,8 @@ services:
       <<: *egress-env
       CORE_DB_HOST: postgres-core
       S3_ENDPOINT: http://s3:8333
-      PREVIEW_PASSTHROUGH_ENV: CORE_DB_HOST,S3_ENDPOINT
+      PREVIEW_PASSTHROUGH_ENV: S3_ENDPOINT
+    secrets: [pg_core_site_ro]
     volumes:
       - artifacts:/data/artifacts:ro
     healthcheck:

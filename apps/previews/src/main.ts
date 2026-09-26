@@ -1,11 +1,12 @@
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { contentDatabaseUrl } from '@ai-cms/pipeline/builder';
 import { createLauncher, PreviewManager } from './manager.ts';
 import { createPreviewHandler } from './server.ts';
 
 /**
- * Service variables a preview inherits (never secrets: this service holds none). Extra names
+ * Service variables a preview inherits (never platform secrets). Extra names
  * can be listed in PREVIEW_PASSTHROUGH_ENV, comma-separated.
  */
 const BASE_ENV = [
@@ -33,6 +34,9 @@ const baseEnv = Object.fromEntries(
 const runRoot = process.env.PREVIEWS_RUN_ROOT || join(tmpdir(), 'ai-cms-previews');
 baseEnv.HOME = runRoot;
 baseEnv.NEXT_TELEMETRY_DISABLED = '1';
+// Read-only access to published content (public data), so previews show real pages.
+const contentUrl = contentDatabaseUrl();
+if (contentUrl) baseEnv.CORE_DATABASE_URL = contentUrl;
 
 const manager = new PreviewManager({
   artifactsRoot: process.env.ARTIFACTS_ROOT || '/data/artifacts',

@@ -3,6 +3,7 @@ import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { contentDatabaseUrl } from '@ai-cms/pipeline/builder';
 import { deleteArtifacts } from './artifact.ts';
 import { executeRun, type BuilderConfig } from './run.ts';
 import { RunManager } from './runs.ts';
@@ -20,6 +21,7 @@ const config: BuilderConfig = {
   workRoot: process.env.BUILDER_WORK_ROOT || join(tmpdir(), 'ai-cms-builder'),
   workspacesRoot: process.env.WORKSPACES_ROOT || '/data/workspaces',
   artifactsRoot: process.env.ARTIFACTS_ROOT || '/data/artifacts',
+  contentDatabaseUrl: contentDatabaseUrl(),
 };
 const port = Number(process.env.PORT ?? 8090);
 

@@ -1,3 +1,5 @@
+import { seed } from '@ai-cms/db';
+import { createTestDatabase, testDatabaseUrl } from '@ai-cms/db/testing';
 import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { access, cp, mkdtemp, readFile, rm } from 'node:fs/promises';
@@ -61,6 +63,13 @@ describe.skipIf(process.env.SKIP_BUILD_TESTS === '1')('builder integration', () 
       .replace(/\/v\d+$/, '');
     process.env.PNPM_STORE_DIR ??= storeDir;
 
+    // Published content for the built site: a seeded core database, when one is available.
+    let content: Awaited<ReturnType<typeof createTestDatabase>> | undefined;
+    if (testDatabaseUrl) {
+      content = await createTestDatabase();
+      await seed(content.db, { hashPassword: async (p) => p });
+    }
+
     const results = new Map<BuilderCheckName, { status: CheckStatus; output: string | null }>();
     const artifactsRoot = join(dir, 'artifacts');
     await executeRun(
@@ -77,15 +86,20 @@ describe.skipIf(process.env.SKIP_BUILD_TESTS === '1')('builder integration', () 
         workRoot: join(dir, 'work'),
         workspacesRoot: join(dir, 'workspaces'),
         artifactsRoot,
+        contentDatabaseUrl: content?.url,
       },
       (name, status, output = null) => results.set(name, { status, output }),
     );
 
+    await content?.drop();
     const summary = Object.fromEntries([...results].map(([k, v]) => [k, v.status]));
     const outputs = [...results]
       .map(([k, v]) => `## ${k}: ${v.status}\n${v.output ?? ''}`)
       .join('\n');
-    for (const check of ['deps', 'typecheck', 'build', 'e2e'] as const) {
+    const required = content
+      ? (['deps', 'typecheck', 'lint', 'build', 'e2e'] as const)
+      : (['deps', 'typecheck', 'build'] as const);
+    for (const check of required) {
       expect(summary[check], outputs).toBe('passed');
     }
     // lint and html depend on the template content (owned elsewhere): they only have to finish.

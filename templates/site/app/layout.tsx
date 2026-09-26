@@ -1,15 +1,14 @@
-import { DEFAULT_SETTINGS, NONCE_HEADER, PATH_HEADER, pageLang } from '@ai-cms/site-kit';
+import {
+  DEFAULT_SETTINGS,
+  NONCE_HEADER,
+  PATH_HEADER,
+  pageLang,
+  WidgetLoader,
+} from '@ai-cms/site-kit';
 import { headers } from 'next/headers';
 import type { ReactNode } from 'react';
 import '@ai-cms/site-kit/base.css';
 import { loadPage, loadSettings } from '@ai-cms/site-kit/next';
-
-/**
- * Loads the CMS widget only for signed-in users (TECHNICAL §10.1). `cms_ui` is a plain hint
- * cookie set at login: visitors download nothing and every page stays identical for them.
- */
-const WIDGET_LOADER =
-  "if(/(?:^|;\\s*)cms_ui=1(?:;|$)/.test(document.cookie)){var s=document.createElement('script');s.type='module';s.src='/_cms/widget.js';document.head.appendChild(s)}";
 
 /**
  * `<html lang>` comes from the page (`meta.lang`) or the site settings. The root layout does
@@ -33,11 +32,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
     <html lang={lang}>
       <body>
         {children}
-        {/* The CSP only runs inline scripts with the request nonce (proxy.ts). */}
-        <script
-          nonce={requestHeaders.get(NONCE_HEADER) ?? undefined}
-          dangerouslySetInnerHTML={{ __html: WIDGET_LOADER }}
-        />
+        <WidgetLoader nonce={requestHeaders.get(NONCE_HEADER) ?? undefined} />
       </body>
     </html>
   );

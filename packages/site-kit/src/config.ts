@@ -8,6 +8,11 @@ export function siteEnv(): SiteEnv {
 }
 
 /** Public base URL of the site, without trailing slash (`SITE_URL`). */
+/** True in `next dev`: the CSP must then allow the dev tooling. */
+export function isDevelopment(): boolean {
+  return process.env.NODE_ENV === 'development';
+}
+
 export function siteUrl(): string {
   const fallback = siteEnv() === 'staging' ? 'http://staging.localhost' : 'http://www.localhost';
   return (process.env.SITE_URL ?? fallback).replace(/\/+$/, '');

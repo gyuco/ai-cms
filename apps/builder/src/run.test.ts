@@ -112,7 +112,7 @@ describe('executeRun', () => {
       a11y: 'skipped',
     });
     expect(f.commands).toEqual([
-      'pnpm install --frozen-lockfile --offline --ignore-scripts --reporter=append-only --filter ./templates/site... --filter .',
+      'pnpm install --frozen-lockfile --offline --ignore-scripts --reporter=append-only --filter {./templates/site}... --filter .',
       'next typegen',
       'tsc --noEmit -p .',
       'next build',

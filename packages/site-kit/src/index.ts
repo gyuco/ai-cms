@@ -51,3 +51,4 @@ export {
   NONCE_HEADER,
   SECURITY_HEADERS,
 } from './security.ts';
+export { WidgetLoader } from './widget-loader.tsx';

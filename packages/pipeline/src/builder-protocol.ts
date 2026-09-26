@@ -149,3 +149,4 @@ export function isChangesetId(value: unknown): value is string {
 export function isCommitId(value: unknown): value is string {
   return typeof value === 'string' && COMMIT.test(value);
 }
+export { contentDatabaseUrl } from './content-db.ts';

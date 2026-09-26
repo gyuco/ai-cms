@@ -5,6 +5,7 @@ import {
   contentSecurityPolicy,
   fetchDraft,
   generateNonce,
+  isDevelopment,
   isPublishedPage,
   normalizePublicPath,
   pageNodeFromPath,
@@ -14,7 +15,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 
 /** Paths that are not content pages: framework assets, metadata files, internal endpoints. */
 const NOT_A_PAGE =
-  /^\/(?:_next\/|__cms\/|%5F%5Fcms\/|_cms\/|favicon\.ico$|sitemap\.xml$|robots\.txt$)/i;
+  /^\/(?:_next\/|__cms\/|%5F%5Fcms\/|_cms\/|_not-found$|favicon\.ico$|sitemap\.xml$|robots\.txt$)/i;
 
 /**
  * Next.js 16 renders `notFound()` and errors thrown by a dynamic page as an empty error shell
@@ -53,7 +54,7 @@ export async function proxy(request: NextRequest) {
   // A fresh nonce per request (E6.8). Next.js reads it from the request's CSP header and puts
   // it on its own scripts; the layout reads `x-nonce` for the widget loader.
   const nonce = generateNonce();
-  const csp = contentSecurityPolicy(nonce, { dev: process.env.NODE_ENV === 'development' });
+  const csp = contentSecurityPolicy(nonce, { dev: isDevelopment() });
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set(NONCE_HEADER, nonce);
   requestHeaders.set('content-security-policy', csp);

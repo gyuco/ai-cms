@@ -16,6 +16,8 @@ export interface BuilderConfig {
   workspacesRoot: string;
   /** Build artifacts and preview.json files, shared with the previews service. */
   artifactsRoot: string;
+  /** Read-only URL of the published content, given to the built site (CORE_DATABASE_URL). */
+  contentDatabaseUrl?: string;
   timeouts?: Partial<Record<'install' | 'typecheck' | 'unit' | 'build' | 'start', number>>;
 }
 
@@ -152,7 +154,11 @@ export async function executeRun(
 
   const { repo, site, home } = workspace;
   const env = siteEnv(home);
-  const runtimeEnv = { DATABASE_URL: request.databaseUrl, CMS_ENV: 'staging' };
+  const runtimeEnv: Record<string, string> = {
+    DATABASE_URL: request.databaseUrl,
+    CMS_ENV: 'staging',
+    ...(config.contentDatabaseUrl ? { CORE_DATABASE_URL: config.contentDatabaseUrl } : {}),
+  };
   const bin = (name: string) => join(repo, 'node_modules', '.bin', name);
   const siteBin = (name: string) => join(site, 'node_modules', '.bin', name);
 
@@ -172,7 +178,8 @@ export async function executeRun(
         '--ignore-scripts',
         '--reporter=append-only',
         '--filter',
-        `./${SITE_DIR}...`,
+        // Braces: a directory selector followed by `...` (the site and its dependencies).
+        `{./${SITE_DIR}}...`,
         '--filter',
         '.',
       ],
