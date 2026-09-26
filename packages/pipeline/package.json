@@ -4,13 +4,15 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./builder": "./src/builder-protocol.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@ai-cms/audit": "workspace:*",
+    "@ai-cms/authz": "workspace:*",
     "@ai-cms/db": "workspace:*",
     "drizzle-orm": "^0.45.3",
     "postgres": "^3.4.9"

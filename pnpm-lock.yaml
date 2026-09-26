@@ -55,6 +55,27 @@ importers:
         specifier: ^0.28.2
         version: 0.28.2
 
+  apps/builder:
+    dependencies:
+      '@ai-cms/eslint-plugin-site':
+        specifier: workspace:*
+        version: link:../../packages/eslint-plugin-site
+      '@ai-cms/html-rules':
+        specifier: workspace:*
+        version: link:../../packages/html-rules
+      '@ai-cms/pipeline':
+        specifier: workspace:*
+        version: link:../../packages/pipeline
+      '@typescript-eslint/parser':
+        specifier: ^8.70.1
+        version: 8.70.1(eslint@10.11.0)(typescript@6.0.3)
+      eslint:
+        specifier: ^10.11.0
+        version: 10.11.0
+      tsx:
+        specifier: ^4.23.15
+        version: 4.23.15
+
   apps/cms-api:
     dependencies:
       '@ai-cms/ai-config':
@@ -114,6 +135,15 @@ importers:
         version: 0.28.2
 
   apps/egress-proxy: {}
+
+  apps/previews:
+    dependencies:
+      '@ai-cms/pipeline':
+        specifier: workspace:*
+        version: link:../../packages/pipeline
+      tsx:
+        specifier: ^4.23.15
+        version: 4.23.15
 
   apps/worker:
     dependencies:
@@ -296,6 +326,9 @@ importers:
       '@ai-cms/audit':
         specifier: workspace:*
         version: link:../audit
+      '@ai-cms/authz':
+        specifier: workspace:*
+        version: link:../authz
       '@ai-cms/db':
         specifier: workspace:*
         version: link:../db

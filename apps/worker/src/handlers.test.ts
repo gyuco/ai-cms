@@ -4,7 +4,14 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ROOT_UID, schema, seed, type Database } from '@ai-cms/db';
 import { createTestDatabase, testDatabaseUrl } from '@ai-cms/db/testing';
-import { changesetDatabaseName, runGit, workspacePath, type Job } from '@ai-cms/pipeline';
+import {
+  changesetDatabaseName,
+  runGit,
+  workspacePath,
+  type BuilderClient,
+  type BuilderRunRequest,
+  type Job,
+} from '@ai-cms/pipeline';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createHandlers, startupJobs } from './handlers.ts';
 
@@ -41,6 +48,29 @@ describe.skipIf(!testDatabaseUrl)('changeset handlers', () => {
   let handlers: ReturnType<typeof createHandlers>;
   const site = () => ({ gitRoot: join(dir, 'git'), workspacesRoot: join(dir, 'ws') });
   const run = (type: string, payload: unknown) => handlers[type]!(payload, {} as Job);
+  const deleted: string[] = [];
+  const builder: BuilderClient = {
+    async startRun(request: BuilderRunRequest) {
+      return {
+        id: 'r',
+        changesetId: request.changesetId,
+        commit: request.commit,
+        status: 'finished',
+        createdAt: '',
+        finishedAt: '',
+        checks: request.checks.map((name) => ({ name, status: 'passed', output: null })),
+      };
+    },
+    getRun: async () => {
+      throw new Error('not polled');
+    },
+    deleteArtifacts: async (id) => void deleted.push(id),
+  };
+  const urlFor = (name: string) => {
+    const url = new URL(testDatabaseUrl!);
+    url.pathname = `/${name}`;
+    return url.toString();
+  };
 
   beforeAll(async () => {
     database = await createTestDatabase();
@@ -52,6 +82,9 @@ describe.skipIf(!testDatabaseUrl)('changeset handlers', () => {
       templateDir: await makeTemplate(dir),
       stagingAdminUrl: () => testDatabaseUrl!,
       stagingTemplate,
+      builder,
+      stagingDatabaseUrl: (_role, name) => urlFor(name),
+      checks: { publishedPages: async () => ['/'] },
     });
     await run('site.init', {});
   });
@@ -78,8 +111,14 @@ describe.skipIf(!testDatabaseUrl)('changeset handlers', () => {
     expect(await run('changeset.record', { changesetId: id })).toMatchObject({
       touchedPaths: ['code.api'],
     });
+    expect(await run('changeset.check', { changesetId: id })).toMatchObject({
+      status: 'ready',
+      destructiveMigration: false,
+      checks: { permissions: 'passed', migration: 'skipped', build: 'passed' },
+    });
 
     expect(await run('changeset.close', { changesetId: id })).toEqual({ status: 'closed' });
+    expect(deleted).toEqual([id]);
     await expect(access(cwd)).rejects.toThrow();
     const dbs = await database.sql`SELECT 1 FROM pg_database WHERE datname = ${created.database}`;
     expect(dbs).toHaveLength(0);

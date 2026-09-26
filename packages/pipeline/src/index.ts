@@ -44,3 +44,51 @@ export {
   dropChangesetDatabase,
   type CreateChangesetDatabaseOptions,
 } from './changeset-db.ts';
+export {
+  BUILDER_CHECKS,
+  CHECK_NAMES,
+  CHECK_STATUSES,
+  isChangesetId,
+  isCommitId,
+  MAX_CHECK_OUTPUT,
+  PREVIEW_ENV_KEYS,
+  summarizeChecks,
+  truncateOutput,
+  WORKER_CHECKS,
+  type BuilderCheckName,
+  type BuilderRun,
+  type BuilderRunRequest,
+  type BuilderRunStatus,
+  type CheckName,
+  type CheckResult,
+  type CheckStatus,
+  type ChecksSummary,
+  type PreviewConfig,
+} from './builder-protocol.ts';
+export {
+  BuilderError,
+  createBuilderClient,
+  type BuilderClient,
+  type BuilderClientOptions,
+} from './builder-client.ts';
+export {
+  pageUrlForTreePath,
+  pageUrlsForFiles,
+  permissionsCheck,
+  publishedPageUrls,
+  runChangesetChecks,
+  type RunChecksOptions,
+  type RunChecksResult,
+} from './checks.ts';
+export {
+  applySiteMigrations,
+  findDestructiveStatements,
+  MigrationError,
+  readSiteMigrations,
+  SITE_MIGRATIONS_DIR,
+  splitSqlStatements,
+  type ApplyMigrationsOptions,
+  type ApplyMigrationsResult,
+  type DestructiveStatement,
+  type SiteMigration,
+} from './migrations.ts';

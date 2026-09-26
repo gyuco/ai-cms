@@ -4,8 +4,8 @@ name: ai-cms
 x-egress-env: &egress-env
   HTTPS_PROXY: http://egress-proxy:3128
   https_proxy: http://egress-proxy:3128
-  NO_PROXY: localhost,127.0.0.1,postgres-core,postgres-prod,postgres-staging,s3,mailpit,cms-api,site-prod,site-staging,previews,egress-proxy
-  no_proxy: localhost,127.0.0.1,postgres-core,postgres-prod,postgres-staging,s3,mailpit,cms-api,site-prod,site-staging,previews,egress-proxy
+  NO_PROXY: localhost,127.0.0.1,postgres-core,postgres-prod,postgres-staging,s3,mailpit,cms-api,site-prod,site-staging,previews,builder,egress-proxy
+  no_proxy: localhost,127.0.0.1,postgres-core,postgres-prod,postgres-staging,s3,mailpit,cms-api,site-prod,site-staging,previews,builder,egress-proxy
   NODE_USE_ENV_PROXY: '1'
 
 x-postgres: &postgres
@@ -82,7 +82,7 @@ services:
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
-    depends_on: [cms-api, site-prod, site-staging]
+    depends_on: [cms-api, site-prod, site-staging, previews]
     ports:
       - '${HTTP_PORT:-80}:80'
     volumes:
@@ -137,11 +137,14 @@ services:
       PROD_DB_HOST: postgres-prod
       STAGING_DB_HOST: postgres-staging
       S3_ENDPOINT: http://s3:8333
+      BUILDER_URL: http://builder:8090
     secrets:
       [
         pg_core_worker,
         pg_prod_owner,
         pg_staging_owner,
+        pg_staging_app,
+        builder_token,
         revalidate_token,
         s3_access_key,
         s3_secret_key,
@@ -214,15 +217,50 @@ services:
     # no API keys: see TECHNICAL §3.1 and §7.
     networks: [control]
 
+  # Changeset checks and builds (E11.2). It runs AI-written site code, so it holds no platform
+  # secret: only the token the worker uses to call it. Workspaces are read-only; the internet
+  # is reachable only through egress-proxy.
   builder:
     image: ai-cms/builder
     build:
       context: ..
       dockerfile: docker/images/builder.Dockerfile
-    # Started on demand by the worker (E11.2), not by `docker compose up`.
-    profiles: [tools]
+    restart: unless-stopped
     environment:
       <<: *egress-env
+      BUILDER_CONCURRENCY: '1'
+    secrets: [builder_token]
+    volumes:
+      - workspaces:/data/workspaces:ro
+      - artifacts:/data/artifacts
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -q -O /dev/null http://127.0.0.1:8090/health || exit 1']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks: [staging]
+
+  # Changeset previews (E10.9): caddy routes cs-<id>.localhost here; one `next start` per
+  # changeset on the artifact written by the builder. No platform secret: the site connects to
+  # the changeset database with the site_app URL found in preview.json.
+  previews:
+    image: ai-cms/previews
+    build:
+      context: ..
+      dockerfile: docker/images/previews.Dockerfile
+    restart: unless-stopped
+    environment:
+      <<: *egress-env
+      CORE_DB_HOST: postgres-core
+      S3_ENDPOINT: http://s3:8333
+      PREVIEW_PASSTHROUGH_ENV: CORE_DB_HOST,S3_ENDPOINT
+    volumes:
+      - artifacts:/data/artifacts:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -q -O /dev/null http://127.0.0.1:8080/__previews/health || exit 1']
+      interval: 5s
+      timeout: 5s
+      retries: 20
     networks: [staging]
 
   egress-proxy:
@@ -259,6 +297,7 @@ volumes:
   git-repos:
   workspaces:
   releases:
+  artifacts:
   backups:
   s3-data:
   cli-auth:
@@ -281,3 +320,4 @@ secrets:
   session_secret: { file: ./secrets/session_secret }
   ai_keys_master: { file: ./secrets/ai_keys_master }
   revalidate_token: { file: ./secrets/revalidate_token }
+  builder_token: { file: ./secrets/builder_token }
