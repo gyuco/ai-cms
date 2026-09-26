@@ -3,3 +3,4 @@ export * from './config.ts';
 export * from './content.ts';
 export * from './paths.ts';
 export * from './preview.ts';
+export * from './revalidate.ts';

@@ -34,3 +34,13 @@ export {
   pageTitle,
   type PageMetadataInput,
 } from './metadata.ts';
+export {
+  ALL_PATHS,
+  isAuthorized,
+  parseRevalidateBody,
+  requestRevalidation,
+  REVALIDATE_PATH,
+  revalidateToken,
+  type RevalidateBody,
+  type RevalidationResult,
+} from './revalidate.ts';
