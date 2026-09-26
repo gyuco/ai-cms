@@ -11,6 +11,10 @@
   },
   "dependencies": {
     "@ai-cms/authz": "workspace:*",
-    "@ai-cms/content": "workspace:*"
+    "@ai-cms/content": "workspace:*",
+    "@ai-cms/tree": "workspace:*"
+  },
+  "devDependencies": {
+    "@ai-cms/db": "workspace:*"
   }
 }

@@ -178,6 +178,13 @@ importers:
       '@ai-cms/content':
         specifier: workspace:*
         version: link:../content
+      '@ai-cms/tree':
+        specifier: workspace:*
+        version: link:../tree
+    devDependencies:
+      '@ai-cms/db':
+        specifier: workspace:*
+        version: link:../db
 
   packages/ai:
     dependencies:

@@ -20,3 +20,13 @@ export {
   type SelectedBlock,
 } from './content-agent/context.ts';
 export { buildContentAgentPrompt, CONTENT_AGENT_SYSTEM_PROMPT } from './content-agent/prompt.ts';
+export {
+  confirmContentPlan,
+  createPlanSession,
+  isDestructiveOperation,
+  planIsDestructive,
+  previewContentPlan,
+  previewIsMassiveOverwrite,
+  requiresConfirmation,
+  type PlanSession,
+} from './content-agent/plan.ts';
