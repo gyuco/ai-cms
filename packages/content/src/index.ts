@@ -1,3 +1,4 @@
+export * from './assets.ts';
 export * from './blocks.ts';
 export * from './diff.ts';
 export * from './documents.ts';

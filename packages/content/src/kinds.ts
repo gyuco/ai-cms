@@ -1,3 +1,4 @@
+import { parseAssetMeta } from './assets.ts';
 import { parseMenu, parseSiteSettings, type ParseResult } from './documents.ts';
 import { normalizeLayout, normalizePageBody } from './normalize.ts';
 
@@ -7,6 +8,7 @@ const normalizers = {
   layout: normalizeLayout,
   menu: parseMenu,
   setting: parseSiteSettings,
+  asset: parseAssetMeta,
 } satisfies Record<string, (input: unknown) => ParseResult<unknown>>;
 
 export type ContentKind = keyof typeof normalizers;
