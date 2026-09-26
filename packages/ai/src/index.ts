@@ -42,3 +42,11 @@ export {
   type OpenAIClientLike,
   type OpenAICompatibleEngineOptions,
 } from './openai-compatible.ts';
+export {
+  DEFAULT_MAX_STEPS,
+  runAgent,
+  type AgentEvent,
+  type AgentResult,
+  type AgentStopReason,
+  type RunAgentOptions,
+} from './agent.ts';
