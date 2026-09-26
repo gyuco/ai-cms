@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pagina di prova del widget</title>
+    <style>
+      /* Deliberately aggressive site styles: none of them may reach the widget. */
+      * {
+        font-family: Georgia, serif;
+        color: #7a1f1f;
+      }
+      button {
+        background: hotpink;
+        border: 4px dashed lime;
+      }
+      body {
+        margin: 0 auto;
+        max-width: 40rem;
+        padding: 2rem 1rem;
+        background: #fffaf0;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Pagina di prova</h1>
+      <p>
+        Questa pagina carica il widget dai sorgenti con un'API finta. Aggiungi
+        <code>?env=staging</code> all'indirizzo per lo staging, <code>?anon</code> per un visitatore
+        senza sessione.
+      </p>
+      <button type="button">Pulsante del sito</button>
+    </main>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

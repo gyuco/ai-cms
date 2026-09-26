@@ -4,9 +4,18 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    "./widget.js": "./dist/widget.js"
   },
   "scripts": {
+    "dev": "vite --port 5174 --open /dev/index.html",
+    "build": "vite build",
     "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "preact": "^10.29.8"
+  },
+  "devDependencies": {
+    "happy-dom": "^20.14.5",
+    "vite": "^8.3.1"
   }
 }

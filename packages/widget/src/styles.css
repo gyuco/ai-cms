@@ -1,0 +1,13 @@
+/*
+ * Every rule lives in the shadow root. The host is reset and takes no space, so the widget
+ * never changes the page layout; its visible parts are fixed to the viewport.
+ */
+:host {
+  all: initial;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  z-index: 2147483000;
+}
