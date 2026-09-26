@@ -13,6 +13,28 @@ direttamente dalle pagine del sito.
 - pnpm 10 (`corepack enable`)
 - Docker con Docker Compose
 
+## Avvio in locale
+
+```bash
+make up      # genera i segreti locali, costruisce le immagini e avvia tutto
+make ps      # stato dei servizi
+make help    # tutti i comandi
+```
+
+| Indirizzo | Servizio |
+|---|---|
+| http://www.localhost | Sito di produzione (all'inizio una pagina bianca) |
+| http://staging.localhost | Sito di staging |
+| http://www.localhost/_cms/api/health | Backend del CMS |
+| http://mail.localhost | Mailpit (email di sviluppo) |
+
+- I segreti locali (password dei database, chiavi) sono generati in `docker/secrets/`, che
+  non va mai committata.
+- I servizi non raggiungono internet direttamente: l'uscita HTTPS passa da `egress-proxy`,
+  che consente solo gli host elencati in `EGRESS_ALLOW` (vedi `docker/.env.example`).
+- Dietro un proxy aziendale con ispezione TLS si può passare alla build un certificato CA
+  aggiuntivo come secret BuildKit con id `extra_ca`.
+
 ## Sviluppo
 
 ```bash
