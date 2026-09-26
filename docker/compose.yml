@@ -198,10 +198,20 @@ services:
     restart: unless-stopped
     environment:
       <<: *egress-env
+      # Agent sessions, authz decisions, AI gateway and MCP server: all in cms-api.
+      CMS_API_URL: http://cms-api:3100
     volumes:
-      - workspaces:/workspaces
+      - workspaces:/data/workspaces
       - cli-auth:/cli-auth
-    # No prod network and no API keys: see TECHNICAL §7.
+    depends_on:
+      cms-api: { condition: service_healthy }
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -q -O /dev/null http://127.0.0.1:8070/health || exit 1']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    # Serves http://agent-runner:8070 to cms-api and worker. No prod network, no secrets and
+    # no API keys: see TECHNICAL §3.1 and §7.
     networks: [control]
 
   builder:
