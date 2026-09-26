@@ -369,9 +369,128 @@ export function createMockState() {
     return ok({ status: user.status });
   }
 
+  interface MockConnection {
+    id: string;
+    label: string;
+    type: string;
+    provider: string;
+    baseUrl: string | null;
+    defaultModel: string | null;
+    scope: string;
+    ownerUid: number | null;
+    hasKey: boolean;
+    keyHint: string | null;
+    lastTest: { model: string; ok: boolean; tools: boolean; at: string } | null;
+  }
+  const connections: MockConnection[] = [
+    {
+      id: 'anthropic',
+      label: 'Anthropic dello studio',
+      type: 'api',
+      provider: 'anthropic',
+      baseUrl: null,
+      defaultModel: 'claude-sonnet-4-5',
+      scope: 'shared',
+      ownerUid: null,
+      hasKey: true,
+      keyHint: 'sk-ant-…Q2xA',
+      lastTest: { model: 'claude-sonnet-4-5', ok: true, tools: true, at: hoursAgo(5) },
+    },
+    {
+      id: 'claude-code',
+      label: 'Claude Code di Mario',
+      type: 'subscription',
+      provider: 'claude-code',
+      baseUrl: null,
+      defaultModel: null,
+      scope: 'shared',
+      ownerUid: null,
+      hasKey: false,
+      keyHint: null,
+      lastTest: null,
+    },
+  ];
+  let active = 'anthropic';
+  const ROLES = ['content-agent', 'dev-agent', 'ai-review', 'translate', 'alt-text'];
+
+  function ai(req: MockRequest, route: string): MockResult | null {
+    if (route === 'GET /ai/connections') {
+      return ok({
+        connections,
+        roles: ROLES.map((role) => ({ role, connectionId: active, model: null })),
+      });
+    }
+    if (route === 'POST /ai/connections') {
+      const body = req.body as Record<string, string | undefined>;
+      const id = (body.label ?? 'x').toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      if (body.type === 'api' && !body.apiKey) {
+        return fail(400, 'invalid_input', 'Per una connessione con chiave API serve la chiave.');
+      }
+      const connection: MockConnection = {
+        id,
+        label: body.label ?? '',
+        type: body.type ?? 'api',
+        provider: body.provider ?? 'anthropic',
+        baseUrl: body.baseUrl ?? null,
+        defaultModel: body.defaultModel ?? null,
+        scope: body.scope ?? 'shared',
+        ownerUid: body.scope === 'personal' ? 0 : null,
+        hasKey: Boolean(body.apiKey),
+        keyHint: body.apiKey ? `${body.apiKey.slice(0, 3)}…${body.apiKey.slice(-4)}` : null,
+        lastTest: null,
+      };
+      connections.push(connection);
+      return ok({ connection }, 201);
+    }
+    if (route === 'POST /ai/active') {
+      active = String(req.body.connectionId);
+      return ok({ connectionId: active, model: null, roles: ROLES });
+    }
+    const match = /^(PATCH|DELETE|POST) \/ai\/connections\/([^/]+)(\/test)?$/.exec(route);
+    if (!match) return null;
+    const connection = connections.find((c) => c.id === decodeURIComponent(match[2]!));
+    if (!connection) return fail(404, 'not_found', 'Connessione inesistente.');
+    if (match[3]) {
+      if (connection.provider === 'claude-code') {
+        return ok({
+          ok: true,
+          status: 'unverified',
+          model: null,
+          tools: true,
+          latencyMs: 0,
+          message:
+            "Claude Code gira nell'agent-runner: la verifica avviene alla prima conversazione. Collega l'abbonamento con make connect-claude-code.",
+        });
+      }
+      connection.lastTest = {
+        model: connection.defaultModel ?? '',
+        ok: true,
+        tools: true,
+        at: new Date().toISOString(),
+      };
+      return ok({
+        ok: true,
+        status: 'ok',
+        model: connection.defaultModel,
+        tools: true,
+        latencyMs: 812,
+        message: `Connessione riuscita con ${String(connection.defaultModel)} (0,8 s), uso di strumenti verificato.`,
+      });
+    }
+    if (match[1] === 'DELETE') {
+      connections.splice(connections.indexOf(connection), 1);
+      return ok({ ok: true });
+    }
+    if (typeof req.body.apiKey === 'string') {
+      connection.hasKey = true;
+      connection.keyHint = `…${req.body.apiKey.slice(-4)}`;
+    }
+    return ok({ connection });
+  }
+
   function handle(req: MockRequest): MockResult {
     const route = `${req.method} ${req.path}`;
-    const result = pages(req, route) ?? site(req, route) ?? people(req, route);
+    const result = pages(req, route) ?? site(req, route) ?? people(req, route) ?? ai(req, route);
     if (result) return result;
     switch (route) {
       case 'GET /context':

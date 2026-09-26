@@ -5,11 +5,11 @@ import { createMockState, type MockRequest, type MockResult } from './mock-state
 /**
  * Dev-server only: a fake `/_cms/api` for dev/index.html, so the widget can be tried without
  * cms-api and a database. The page URL chooses the scenario: `?env=staging` for the staging
- * environment, `?anon` for a visitor without a session (401). The state lives in memory and
- * resets when the dev server restarts.
+ * environment, `?anon` for a visitor without a session (401). The state lives in memory;
+ * `POST /_cms/api/__reset` (or a restart) brings it back to the initial data.
  */
 export function devApiMock(): Plugin {
-  const state = createMockState();
+  let state = createMockState();
   return {
     name: 'cms-widget-dev-api',
     configureServer(server) {
@@ -48,6 +48,10 @@ export function devApiMock(): Plugin {
         req.on('data', (chunk: Buffer) => (raw += chunk.toString()));
         req.on('end', () => {
           const url = new URL(req.url ?? '/', 'http://localhost/');
+          if (url.pathname === '/__reset') {
+            state = createMockState();
+            return send({ status: 200, body: { ok: true } });
+          }
           const request: MockRequest = {
             method,
             path: url.pathname,
