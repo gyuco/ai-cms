@@ -592,6 +592,8 @@ input[type='checkbox'] {
   justify-items: start;
   padding: 6px 10px;
   border-radius: 6px;
+  /* Messages that list the HTML rules arrive with one violation per line. */
+  white-space: pre-line;
 }
 
 .status-ok {

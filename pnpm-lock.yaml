@@ -354,13 +354,13 @@ importers:
       '@ai-cms/db':
         specifier: workspace:*
         version: link:../db
+      '@ai-cms/html-rules':
+        specifier: workspace:*
+        version: link:../html-rules
       postgres:
         specifier: ^3.4.9
         version: 3.4.9
     devDependencies:
-      '@ai-cms/html-rules':
-        specifier: workspace:*
-        version: link:../html-rules
       '@types/react':
         specifier: ^19.3.0
         version: 19.3.0

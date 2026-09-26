@@ -52,6 +52,13 @@ export interface SaveOptions {
 
 export type PublishHook = (paths: string[], env: Env) => Promise<void>;
 
+/**
+ * HTML rules on the page as the site renders it (TECHNICAL §11). The renderer lives outside
+ * this package, so the caller provides it: it receives the node path and the body of the
+ * version and answers the blocking errors, already explained in Italian.
+ */
+export type RenderValidator = (path: string, body: unknown) => Promise<{ errors: string[] }>;
+
 const toVersion = (row: typeof contentVersions.$inferSelect): ContentVersion => ({
   id: row.id,
   nodeId: row.nodeId,
@@ -310,6 +317,8 @@ export interface PublishOptions {
    * transaction, call the hook yourself after that transaction commits instead.
    */
   onPublished?: PublishHook;
+  /** HTML rules on the rendered page (E6.7): errors with this validator block the publication. */
+  validateRendered?: RenderValidator;
 }
 
 export interface PublishResult {
@@ -360,7 +369,7 @@ export async function publishVersion(
   principal: Principal,
   env: Env,
   node: TreeNode,
-  options: Pick<PublishOptions, 'version' | 'versionId'> = {},
+  options: Pick<PublishOptions, 'version' | 'versionId' | 'validateRendered'> = {},
 ): Promise<PublishResult> {
   let version: ContentVersion;
   if (options.versionId !== undefined) {
@@ -383,6 +392,16 @@ export async function publishVersion(
     version = toVersion(row);
   } else {
     version = await resolveVersion(tx, node, env, options.version ?? 'latest');
+  }
+  // Serious errors keep the version out of the site, and the reason reaches the user (FR-168).
+  if (options.validateRendered) {
+    const { errors } = await options.validateRendered(node.path, version.body);
+    if (errors.length > 0) {
+      throw new ValidationError(
+        `${node.path} non è pubblicabile: ${errors.length === 1 ? 'un errore grave' : `${String(errors.length)} errori gravi`} HTML.\n${errors.map((e) => `· ${e}`).join('\n')}`,
+        errors,
+      );
+    }
   }
   const previous = await publishedVersionId(tx, node.id, env);
   const values = {
