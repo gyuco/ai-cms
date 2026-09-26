@@ -18,5 +18,7 @@ export const POST = route(async (request, context) => {
   if (!url.startsWith('/') || pageNodePath(url) === null) {
     throw new BadRequestError('Indirizzo della pagina non valido.');
   }
-  return json(await checkRenderedPage(`${siteInternalUrl(context.env)}${url}`));
+  const result = await checkRenderedPage(`${siteInternalUrl(context.env)}${url}`);
+  // The internal address of the site is not the client's business.
+  return json({ ...result, url });
 });

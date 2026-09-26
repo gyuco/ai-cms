@@ -151,7 +151,7 @@ function TreeItem({ tree, entry }: { tree: TreeState; entry: TreeEntry }) {
   const [mode, setMode] = useState<Mode>(null);
   const open = tree.expanded.has(entry.path);
   const state = pageStateLabel(entry.status);
-  const label = entry.title || entry.name;
+  const label = entry.title || (entry.path === HOME ? 'Home' : entry.name);
   const current = typeof location !== 'undefined' && entry.url === location.pathname;
   const protectedPage = entry.path === HOME;
 

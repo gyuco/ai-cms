@@ -44,9 +44,6 @@
   --ok-text: #11643a;
   --field-border: #8a919e;
   --select: #7c3aed;
-  --select-text: #ffffff;
-  --select-soft: rgb(124 58 237 / 0.55);
-  --select-fill: rgb(124 58 237 / 0.08);
   --shadow: 0 12px 32px rgb(15 17 21 / 0.22), 0 2px 6px rgb(15 17 21 / 0.12);
 }
 
@@ -76,9 +73,6 @@
     --ok-text: #8fe0b0;
     --field-border: #6b7280;
     --select: #c4b5fd;
-    --select-text: #1e1235;
-    --select-soft: rgb(196 181 253 / 0.6);
-    --select-fill: rgb(196 181 253 / 0.1);
     --shadow: 0 12px 32px rgb(0 0 0 / 0.55), 0 2px 6px rgb(0 0 0 / 0.4);
   }
 }
@@ -1080,16 +1074,19 @@ pre code {
   border-radius: 3px;
 }
 
+/* Drawn over the site, whatever its colors: same in both widget themes, with a white halo. */
 .block-outline.candidate {
-  outline: 1px dashed var(--select-soft);
+  outline: 1px dashed rgb(109 40 217 / 0.7);
   outline-offset: 1px;
+  box-shadow: 0 0 0 2px rgb(255 255 255 / 0.5);
 }
 
 .block-outline.active,
 .block-outline.selected {
-  outline: 2px solid var(--select);
+  outline: 2px solid #6d28d9;
   outline-offset: 2px;
-  background: var(--select-fill);
+  box-shadow: 0 0 0 5px rgb(255 255 255 / 0.75);
+  background: rgb(109 40 217 / 0.08);
 }
 
 .block-label {
@@ -1101,8 +1098,8 @@ pre code {
   padding: 2px 6px;
   overflow: hidden;
   border-radius: 4px;
-  background: var(--select);
-  color: var(--select-text);
+  background: #6d28d9;
+  color: #ffffff;
   font-size: 12px;
   font-weight: 600;
   white-space: nowrap;
