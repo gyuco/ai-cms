@@ -14,7 +14,7 @@
 ## 1. Principi architetturali
 
 1. **Il codice della piattaforma e il codice del sito sono separati.**
-   - *Repo piattaforma* (questo repository): console, motore permessi, agenti, pipeline.
+   - *Repo piattaforma* (questo repository): cms-api, widget, motore permessi, agenti, pipeline.
      Non viene mai modificato dall'AI.
    - *Repo sito*: il sito generato, gestito dal CMS in un git server locale.
      È l'unico codice che l'agente sviluppatore scrive.
@@ -38,8 +38,10 @@
 | Area | Scelta | Motivo |
 |---|---|---|
 | Linguaggio | **TypeScript** (strict) su Node.js 22 LTS | Un linguaggio per tutto; `tsc` è il primo controllo sul codice generato. |
-| Monorepo | pnpm workspaces + Turborepo | Pacchetti condivisi tra console, sito e worker. |
-| Console (chat + admin) | Next.js (App Router) | UI e API della piattaforma. |
+| Monorepo | pnpm workspaces + Turborepo | Pacchetti condivisi tra cms-api, widget, sito e worker. |
+| Backend CMS (`cms-api`) | Next.js (solo route handler, nessuna UI di amministrazione) | API, chat in streaming, pagina di login, file del widget. |
+| Widget | Web component con Preact, in Shadow DOM, bundle unico con Vite | Interfaccia di gestione dentro le pagine del sito (§10). |
+| Regole HTML | `html-validate` + regole proprie | Validità HTML5, titoli, intestazioni, accessibilità (§11). |
 | Sito generato | Next.js (App Router) | Pagine statiche con ISR e pagine dinamiche nello stesso runtime. |
 | Database | PostgreSQL 17 (con estensione `ltree`) | Albero dei nodi con query sugli antenati efficienti; `CREATE DATABASE … TEMPLATE` per clonare i DB di staging. |
 | ORM e migrazioni | Drizzle ORM + drizzle-kit | Schema tipizzato, migrazioni SQL leggibili e revisionabili. |
@@ -62,14 +64,14 @@
 
 ```
                               ┌──────────────── caddy (:80) ────────────────┐
-                              │ cms.localhost      → console                │
+                              │ */_cms/*           → cms-api (stessa origine)│
                               │ www.localhost      → site-prod (blue|green) │
                               │ staging.localhost  → site-staging           │
                               │ cs-<id>.localhost  → previews:<porta>       │
                               └──────┬───────────────┬───────────────┬──────┘
                                      │               │               │
   ┌──────────────────────── net: control ────────────┼───────────────┼─────────────┐
-  │  console (Next.js)  ◄──►  postgres-core           │               │             │
+  │  cms-api (Next.js)  ◄──►  postgres-core           │               │             │
   │      │   chat, admin,       db: cms_core           │               │             │
   │      │   API, authz         (utenti, albero, ACL,  │               │             │
   │      │                      contenuti, audit)      │               │             │
@@ -93,13 +95,13 @@
 | Servizio | Ruolo | Reti | Note di sicurezza |
 |---|---|---|---|
 | `caddy` | Reverse proxy | tutte | Unico servizio esposto sull'host. |
-| `console` | Chat, admin, API, motore permessi, agente contenuti, **gateway AI**, server MCP degli strumenti | control, prod (solo contenuti), staging | Unico servizio che decifra le chiavi API dei provider. Non ha credenziali di scrittura sul codice di prod. |
+| `cms-api` | API, chat, login, widget, motore permessi, agente contenuti, **gateway AI**, server MCP degli strumenti | control, prod (solo contenuti), staging | Unico servizio che decifra le chiavi API dei provider. Non ha credenziali di scrittura sul codice di prod. |
 | `worker` | Esegue i job: controlli, build, release, sincronizzazioni | control, prod, staging | Unico servizio con i ruoli DB di migrazione in prod. |
 | `agent-runner` | Esegue l'agente sviluppatore in sandbox, con il motore nativo o con una CLI in abbonamento | control (solo gateway AI e server MCP), egress | **Nessun** accesso alle reti prod e **nessuna chiave API**. Utente non root, filesystem limitato al workspace e al proprio profilo CLI. |
 | `builder` | Build di artefatti e test in un container usa e getta | staging | Nessuna credenziale di prod. |
 | `git` | Repository bare del sito + hook | control | Hook `pre-receive` che verifica i permessi sui percorsi (difesa in profondità). |
-| `postgres-core` | DB della piattaforma | control | Ruoli distinti per console, worker e audit. |
-| `postgres-prod` | Dati applicativi di produzione | prod | Raggiungibile solo da `site-prod`, `console` (ruolo limitato) e `worker`. |
+| `postgres-core` | DB della piattaforma | control | Ruoli distinti per cms-api, worker e audit. |
+| `postgres-prod` | Dati applicativi di produzione | prod | Raggiungibile solo da `site-prod`, `cms-api` (ruolo limitato) e `worker`. |
 | `postgres-staging` | Dati applicativi di staging e di ogni changeset | staging | Un DB per changeset, clonato da template. |
 | `site-prod-blue/green` | Runtime del sito pubblico | prod | Filesystem in sola lettura, utente non root, artefatto di release montato in sola lettura. |
 | `site-staging` | Runtime staging (ramo `staging`) | staging | |
@@ -128,13 +130,15 @@
 ```
 ai-cms/
 ├── apps/
-│   ├── console/              Next.js: chat, admin, API REST interne
+│   ├── cms-api/              Next.js: API, chat in streaming, login, serve il widget
 │   └── worker/               job pg-boss: pipeline, release, sync
 ├── packages/
 │   ├── authz/                motore permessi (puro, senza I/O) + adattatore DB
 │   ├── db/                   schema Drizzle di cms_core, migrazioni, seed
 │   ├── tree/                 servizio nodi: CRUD sull'albero, sempre tramite authz
 │   ├── content/              modello a blocchi, versioni, pubblicazione, sanitizzazione
+│   ├── widget/               web component <cms-widget> (Preact + Shadow DOM)
+│   ├── html-rules/           regole HTML: validazione, titoli, head, accessibilità
 │   ├── ai/                   livello provider: motori chat (API/locali), motori CLI,
 │   │                         gateway, instradamento e riserve, consumi
 │   ├── mcp-tools/            strumenti del CMS (Zod) + server MCP
@@ -152,7 +156,7 @@ ai-cms/
 │   ├── compose.yml
 │   ├── caddy/Caddyfile
 │   ├── git/hooks/pre-receive
-│   └── images/               Dockerfile di console, worker, agent-runner, site-runtime
+│   └── images/               Dockerfile di cms-api, worker, agent-runner, site-runtime
 ├── PRD.md
 └── TECHNICAL.md
 ```
@@ -504,7 +508,7 @@ I singoli record **non** sono nodi (potrebbero essere milioni). I permessi sono:
   solo per i propri record;
 - con `APPEND_ONLY`, i record si possono solo inserire (es. ordini, log).
 
-Il client DB di `site-kit` applica queste regole per le operazioni fatte dalla console.
+Il client DB di `site-kit` applica queste regole per le operazioni fatte tramite il CMS.
 Per le operazioni dei visitatori valgono le regole scritte nel codice del sito, verificate in revisione.
 
 ### 6.8 Applicazione dei permessi nel codice
@@ -534,7 +538,7 @@ Per le operazioni dei visitatori valgono le regole scritte nel codice del sito, 
         └────────────┬──────────────┘      └───────────┬──────────────────────┘
                      │                                 │ diretto verso il provider
                      ▼                                 ▼
-        gateway AI (console): chiavi, consumi,     api del provider (piano fisso)
+        gateway AI (cms-api): chiavi, consumi,     api del provider (piano fisso)
         limiti di spesa, riserve
                      │
         ┌────────────┼──────────────┬──────────────────────┐
@@ -582,7 +586,7 @@ interface ChatRequest {
   di configurazione modificabile. Un ruolo che richiede strumenti rifiuta modelli senza tool
   calling (FR-124).
 
-**Gateway AI.** Tutte le chiamate via chiave API passano dal `console`:
+**Gateway AI.** Tutte le chiamate via chiave API passano dal `cms-api`:
 
 - decifra la chiave solo al momento della chiamata (le chiavi stanno cifrate in
   `/system/secrets/ai/*`, FR-127);
@@ -593,7 +597,7 @@ Così `agent-runner` non possiede mai una chiave API, anche quando usa il motore
 
 ### 7.3 Server MCP degli strumenti
 
-- Esposto dal `console` solo sulla rete `control`, con trasporto HTTP.
+- Esposto dal `cms-api` solo sulla rete `control`, con trasporto HTTP.
 - Ogni esecuzione di un agente riceve un **token di sessione** di breve durata che contiene
   il `Principal`: utente, profilo agente, ambiente, changeset, eventuale scope (FR-86).
 - Il server rifiuta qualsiasi chiamata senza token valido e registra tutto nell'audit
@@ -787,8 +791,9 @@ Eseguiti dal `worker` nel container `builder`, sul commit di testa del changeset
 | 6 | `migration` | Applicazione sul DB del changeset. Analisi dell'SQL: `DROP`, `RENAME`, `ALTER … TYPE` o `NOT NULL` senza default impostano `destructive_migration=true`: il pulsante di approvazione mostra un avviso e chiede una conferma esplicita. |
 | 7 | `build` | `next build`, che produce l'artefatto candidato. |
 | 8 | `e2e` | Playwright sulle pagine toccate e sulle pagine critiche (home, 404). |
-| 9 | `a11y` | axe-core sulle pagine toccate (NFR-07). |
-| 10 | `ai-review` | Un secondo modello esamina il diff e segnala problemi (FR-43). È solo consultivo, non blocca. |
+| 9 | `html` | Regole HTML (§11) su tutte le pagine toccate. |
+| 10 | `a11y` | axe-core sulle pagine toccate (NFR-07). |
+| 11 | `ai-review` | Un secondo modello esamina il diff e segnala problemi (FR-43). È solo consultivo, non blocca. |
 
 Se un controllo fallisce, il suo output viene passato all'agente sviluppatore, che può
 riprovare fino a `maxAutoFixAttempts` volte (default 3) (FR-42).
@@ -843,7 +848,7 @@ Job `staging.sync` (richiede `CAP_STAGING_SYNC`, su richiesta o pianificato):
 ## 9. Pubblicazione dei contenuti
 
 - Contenuti statici: una nuova versione diventa visibile aggiornando `publications`.
-- La console chiama `POST /__cms/revalidate` sul sito (token condiviso, solo rete interna)
+- `cms-api` chiama `POST /__cms/revalidate` sul sito (token condiviso, solo rete interna)
   con i percorsi da rigenerare. Il sito usa `revalidatePath` di Next.js (NFR-03).
 - Le pubblicazioni programmate sono gestite da un job pg-boss al momento indicato.
 - L'HTML libero dei blocchi viene sanitizzato al salvataggio con un'allowlist di tag e
@@ -853,7 +858,145 @@ Job `staging.sync` (richiede `CAP_STAGING_SYNC`, su richiesta o pianificato):
 
 ---
 
-## 10. Autenticazione
+## 10. Interfaccia: il widget in pagina
+
+Non esiste un pannello di amministrazione separato (PRD §5.11). Si gestisce tutto
+**dal sito stesso**, tramite un widget che compare su ogni pagina quando si è autenticati.
+
+### 10.1 Caricamento
+
+- Caddy instrada `/_cms/*` di **ogni host del sito** (`www.localhost`, `staging.localhost`,
+  anteprime) verso `cms-api`. Widget, API e sito sono quindi sulla **stessa origine**:
+  niente CORS, cookie condivisi.
+- Il layout radice del sito (in `site-kit`) include un **loader inline di poche centinaia di
+  byte**: se esiste il cookie `cms_ui=1` carica `/_cms/widget.js`, altrimenti non fa nulla.
+  - `cms_ui` è solo un segnale, senza valore di sicurezza. La sessione vera è nel cookie
+    `HttpOnly` `cms_session`, verificato da `cms-api` a ogni chiamata.
+  - I visitatori non scaricano il widget e le pagine restano identiche per tutti, quindi
+    **la cache ISR non si rompe**.
+- `/_cms/login` è l'unica pagina non appartenente al sito: un form minimale di accesso.
+  Dopo il login si torna alla pagina di partenza, già con il widget.
+- Passaggio tra produzione e staging dal widget: `cms-api` genera un token monouso e
+  reindirizza a `staging.localhost/_cms/sso?t=…`, che imposta la sessione su quell'host.
+
+### 10.2 Isolamento
+
+- `<cms-widget>` è un **custom element con Shadow DOM**: gli stili del sito non toccano il
+  widget e gli stili del widget non toccano il sito.
+- Il widget non modifica il DOM della pagina, tranne che per l'anteprima delle modifiche (10.4)
+  e per l'evidenziazione degli elementi selezionati (overlay posizionati sopra la pagina).
+- Posizione, dimensione e stato (aperto/chiuso) sono salvati in `localStorage`.
+- Il widget stesso rispetta WCAG 2.1 AA: navigazione da tastiera, focus gestito, scorciatoia
+  per aprirlo (`Ctrl/Cmd + .`).
+
+### 10.3 Contenuto del widget
+
+Il widget chiede a `cms-api` il **contesto della pagina** (`GET /_cms/api/context?path=…`):
+nodo corrente, permessi effettivi dell'utente su quel nodo, capability, ambiente. Le schede
+visibili dipendono da questi permessi: chi non ha un permesso non vede la scheda.
+
+| Scheda | Contenuto | Visibile con |
+|---|---|---|
+| **Chat** | La conversazione con l'agente, che conosce la pagina corrente | sempre |
+| **Pagina** | Titolo, head (meta, social), stato, versioni, pubblica, "Perché?" sui permessi | `r` sul nodo |
+| **Sito** | Albero delle pagine, menu, layout (header/footer), impostazioni del sito | `l` su `/site` |
+| **Sviluppo** | Changeset aperti, controlli, anteprime, "Approva e pubblica" | ambiente staging o `CAP_RELEASE_APPROVE` |
+| **Utenti e permessi** | Utenti, gruppi, ACL del nodo corrente | `CAP_USER_ADMIN` / `CAP_GROUP_ADMIN` / `m` |
+| **AI** | Connessioni, ruoli, consumi | `CAP_AGENT_CONFIG` |
+| **Audit** | Registro filtrato | `CAP_AUDIT_READ` |
+
+Tutto quello che si fa dalle schede si può fare anche dalla chat: le schede sono una
+scorciatoia, non un secondo sistema. Entrambe chiamano le stesse API e gli stessi strumenti.
+
+### 10.4 Chat contestuale e anteprima in pagina
+
+- **Selezione di un elemento.** Il renderer aggiunge agli elementi dei blocchi gli attributi
+  `data-cms-node` e `data-cms-block`. Con la modalità "seleziona" l'utente clicca un elemento
+  della pagina e la chat riceve il riferimento esatto ("questo titolo", "questa immagine").
+- **Anteprima sul posto.** Quando l'agente propone un piano, il widget chiede a `cms-api` il
+  rendering in bozza (Next.js Draft Mode) e sostituisce temporaneamente il contenuto di
+  `<main>` con l'anteprima, evidenziando le differenze. "Conferma" salva ed esegue il piano,
+  "Annulla" ripristina la pagina.
+- **Streaming.** La chat usa `POST /_cms/api/chat` con risposta in Server-Sent Events.
+- **Sicurezza.** Tutte le chiamate modificanti richiedono il token CSRF ricevuto con il contesto.
+
+### 10.5 Primo avvio: la pagina bianca
+
+Il seed (§14.2) crea solo:
+
+- il nodo `/site/pages/index` (la home, `/`) con **zero blocchi**;
+- il layout radice minimo, che produce un documento HTML5 valido e vuoto:
+
+```html
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Nuovo sito</title>
+  </head>
+  <body>
+    <main></main>
+  </body>
+</html>
+```
+
+Nessun tema, header, footer o menu predefinito: il visitatore vede una pagina bianca.
+Root entra da `/_cms/login` e costruisce il sito dalla chat, a partire da quella pagina.
+
+---
+
+## 11. Regole HTML (`packages/html-rules`)
+
+Ogni pagina prodotta dal CMS deve essere HTML corretto e semantico (PRD §5.12). Le regole
+sono **una sola libreria** usata in tre punti:
+
+1. **dagli strumenti dell'agente**: `create_page` e `update_blocks` renderizzano la bozza,
+   la validano e restituiscono le violazioni all'agente, che le corregge prima di proporre
+   il piano all'utente;
+2. **alla pubblicazione**: una pagina con errori bloccanti non si può pubblicare;
+3. **nella pipeline** (controllo `html`, §8.2): tutte le pagine del changeset, incluse quelle
+   dinamiche renderizzate con i dati di staging.
+
+### 11.1 Regole
+
+| Regola | Livello | Implementazione |
+|---|---|---|
+| Documento HTML5 valido (doctype, `lang`, `charset`, viewport) | errore | layout radice + `html-validate` |
+| Esattamente un `<title>`, non vuoto, **unico nel sito** | errore | `html-validate` + controllo sul sito |
+| Esattamente un `<main>` | errore | regola propria |
+| Esattamente un `<h1>` nelle pagine con contenuto | errore | regola propria |
+| Nessun salto di livello nei titoli (`h2` → `h4`) | errore | `heading-level` di `html-validate` |
+| `id` univoci, nesting valido, niente elementi deprecati | errore | `html-validate` |
+| Immagini con `alt` (vuoto solo se decorative) | errore | `wcag/h37` |
+| Link e pulsanti con testo riconoscibile | errore | regole WCAG di `html-validate` |
+| Campi dei form con etichetta | errore | regole WCAG di `html-validate` |
+| Landmark coerenti: `header`, `nav`, `main`, `footer` usati una volta al livello di pagina | avviso | regola propria |
+| `meta description` presente, 50–160 caratteri | avviso | regola propria |
+| Titolo della pagina entro 60 caratteri | avviso | regola propria |
+| Contrasto colori sufficiente | avviso | axe-core (solo in pipeline e anteprima) |
+
+### 11.2 Head e metadati
+
+- Ogni nodo pagina ha una sezione `meta`: `title`, `description`, `lang`, `canonical`,
+  `robots`, `og:title`, `og:description`, `og:image`, dati strutturati JSON-LD opzionali.
+- Le impostazioni del sito (`/site/settings`) forniscono i default: nome del sito, modello
+  del titolo (`%s · Nome sito`), lingua, favicon, immagine social.
+- Il sito genera il `<head>` con `generateMetadata` di Next.js; header e footer vengono dai
+  nodi di `/site/layouts`.
+- `sitemap.xml` e `robots.txt` sono generati automaticamente dall'albero (`app/sitemap.ts`,
+  `app/robots.ts`), includendo solo le pagine pubblicate e indicizzabili.
+
+### 11.3 Titoli nel modello a blocchi
+
+- Il blocco `heading` ha un livello (`1`–`6`). Il renderer calcola la struttura della pagina
+  (outline) a partire da layout e blocchi.
+- L'agente riceve l'outline corrente nel contesto della pagina, così sa quale livello usare.
+- Nell'HTML libero (FR-22) le stesse regole si applicano al risultato renderizzato.
+
+---
+
+## 12. Autenticazione
 
 - Password con `argon2id` (parametri OWASP); lockout progressivo dopo tentativi falliti.
 - Sessioni server-side in `sessions`, cookie `HttpOnly`, `Secure`, `SameSite=Lax`;
@@ -862,16 +1005,16 @@ Job `staging.sync` (richiede `CAP_STAGING_SYNC`, su richiesta o pianificato):
 - TOTP obbligatorio per chi possiede capability sensibili (`CAP_USER_ADMIN`,
   `CAP_RELEASE_*`, `CAP_SECRETS`) (FR-72).
 - Al primo avvio viene creato `root` con una password casuale stampata una sola volta
-  nei log del container `console`, da cambiare al primo accesso.
+  nei log del container `cms-api`, da cambiare al primo accesso.
 
 ---
 
-## 11. Segreti e credenziali
+## 13. Segreti e credenziali
 
 - Gestiti con i Docker secrets (`/run/secrets/*`), mai nelle immagini.
 - Ogni servizio riceve solo i segreti di cui ha bisogno:
 
-| Segreto | console | worker | agent-runner | site-prod | site-staging |
+| Segreto | cms-api | worker | agent-runner | site-prod | site-staging |
 |---|---|---|---|---|---|
 | `ai_keys_master` (cifra le chiavi API in `/system/secrets/ai`) | ✓ | | | | |
 | `pg_core_*` | ✓ | ✓ | | | |
@@ -889,43 +1032,45 @@ Job `staging.sync` (richiede `CAP_STAGING_SYNC`, su richiesta o pianificato):
 
 ---
 
-## 12. Ambiente locale
+## 14. Ambiente locale
 
-### 12.1 Avvio
+### 14.1 Avvio
 
 ```bash
 cp .env.example .env
 docker compose -f docker/compose.yml up -d
-docker compose logs console | grep "root password"
-# poi, dalla console: collegare una chiave API, oppure un abbonamento con
+docker compose logs cms-api | grep "root password"
+# poi: aprire http://www.localhost/_cms/login, entrare come root e collegare
+# dal widget una chiave API, oppure un abbonamento con
 docker compose exec -it agent-runner cms-connect claude-code --user root
 ```
 
 | URL | Servizio |
 |---|---|
-| http://cms.localhost | Console (chat e admin) |
-| http://www.localhost | Sito di produzione |
+| http://www.localhost | Sito di produzione (all'inizio una pagina bianca) |
+| http://www.localhost/_cms/login | Accesso: dopo il login ogni pagina mostra il widget |
 | http://staging.localhost | Sito di staging |
 | http://cs-&lt;id&gt;.localhost | Anteprima di un changeset |
 | http://mail.localhost | Mailpit |
 | http://minio.localhost | Console MinIO |
 
-### 12.2 Primo avvio (seed)
+### 14.2 Primo avvio (seed)
 
 1. Migrazioni di `cms_core`, poi creazione di utenti di sistema (`root` uid 0, `system`),
    gruppi predefiniti (PRD §5.7.8), capability e albero base con permessi di partenza.
+   La home è una **pagina bianca** (§10.5).
 2. Inizializzazione di `site.git` da `templates/site`, con i rami `main` e `staging`.
 3. Primo build e prima release automatica (`release-0`), così la produzione parte subito.
 
-### 12.3 Sviluppo della piattaforma
+### 14.3 Sviluppo della piattaforma
 
-- `pnpm dev` avvia console e worker in locale con hot reload, collegati ai servizi Docker
+- `pnpm dev` avvia cms-api, widget e worker in locale con hot reload, collegati ai servizi Docker
   (Postgres, MinIO, git).
 - `pnpm test` esegue tutti i test; `pnpm test:authz` solo i test del motore permessi.
 
 ---
 
-## 13. Strategia di test
+## 15. Strategia di test
 
 | Area | Tipo di test |
 |---|---|
@@ -938,13 +1083,13 @@ docker compose exec -it agent-runner cms-connect claude-code --user root
 
 ---
 
-## 14. Roadmap tecnica
+## 16. Roadmap tecnica
 
 | Milestone | Contenuto | Criteri PRD §9 |
 |---|---|---|
 | **M0 — Fondamenta** | Monorepo, Docker Compose, `cms_core`, auth, seed, audit | 1 |
 | **M1 — Permessi** | `authz` completo, servizio `tree`, UI tipo `ls -l`/`getfacl`, "Perché?", test | 7, 8 |
-| **M2 — Contenuti** | Modello a blocchi, versioni, pubblicazione, sito con catch-all, revalidazione | — |
+| **M2 — Contenuti e widget** | Modello a blocchi, versioni, pubblicazione, sito con catch-all, revalidazione, home bianca, regole HTML, login e widget (chat e scheda Pagina) | 1, 11, 12 |
 | **M3 — Provider e agente contenuti** | `packages/ai` (Claude Code, Anthropic, openai-compatible), gateway, server MCP, chat, strumenti, piani transazionali, conflitti | 2, 3 |
 | **M4 — Staging e agente sviluppatore** | git + hook, agent-runner, changeset, DB e anteprime per changeset, controlli | 4 |
 | **M5 — Release** | Revisione, approvazione, blue/green, backup, rollback | 5, 6 |
@@ -952,7 +1097,7 @@ docker compose exec -it agent-runner cms-connect claude-code --user root
 
 ---
 
-## 15. Rischi e decisioni aperte
+## 17. Rischi e decisioni aperte
 
 | Rischio / decisione | Mitigazione / proposta |
 |---|---|

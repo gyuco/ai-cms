@@ -18,6 +18,13 @@ AI-CMS è un CMS in cui **tutto si crea e si modifica parlando con un'AI**:
 pagine statiche, pagine dinamiche, strutture dati, logica applicativa e codice.
 Non ci sono editor visuali né form da compilare: l'interfaccia principale è una chat.
 
+**Non esiste un pannello di amministrazione.** Il sito stesso è l'interfaccia: chi ha fatto
+l'accesso vede su ogni pagina un **widget** con la chat e gli strumenti di gestione. Chi
+visita il sito non vede nulla di tutto questo.
+
+Al primo avvio il sito è **una pagina bianca**: tutto si costruisce da lì, parlando con l'AI,
+producendo sempre HTML corretto e semantico.
+
 Per rendere sicuro un sistema in cui l'AI scrive anche codice, AI-CMS si basa su tre pilastri:
 
 1. **Due ambienti separati.** In **Produzione** si possono modificare solo i contenuti statici.
@@ -45,6 +52,7 @@ Per rendere sicuro un sistema in cui l'AI scrive anche codice, AI-CMS si basa su
 | **Changeset** | Un insieme di modifiche al codice prodotte in una sessione di sviluppo, testate insieme e pubblicate insieme. |
 | **Release** | Un changeset approvato e portato in produzione. |
 | **Ambiente** | *Produzione* (sito pubblico) o *Staging* (ambiente parallelo di sviluppo e test). |
+| **Widget** | Il pannello flottante che compare su ogni pagina del sito agli utenti autenticati: contiene la chat e gli strumenti di gestione. |
 | **Agente contenuti** | L'AI disponibile in produzione, che può solo gestire contenuti. |
 | **Agente sviluppatore** | L'AI disponibile in staging, che può scrivere codice e schemi. |
 | **Provider AI** | Un fornitore di modelli AI (es. Anthropic, OpenAI, Google, Mistral, un modello locale). |
@@ -411,22 +419,74 @@ In fase 1 basta **una sola connessione** per iniziare: l'utente sceglie un abbon
 (es. Claude Code) **oppure** una chiave API, e il CMS la usa per tutti i ruoli.
 Riserve, limiti di spesa e cruscotto arrivano dopo.
 
+### 5.11 Interfaccia: il widget in pagina
+
+| ID | Requisito | Priorità |
+|---|---|---|
+| FR-140 | **Non esiste un'area di amministrazione separata.** Tutta la gestione del CMS avviene dalle pagine del sito. | M |
+| FR-141 | L'accesso avviene da un indirizzo dedicato (es. `/_cms/login`), l'unica pagina che non fa parte del sito. Dopo il login si torna alla pagina da cui si è partiti. | M |
+| FR-142 | Su **ogni pagina**, un utente autenticato vede un widget flottante, apribile e richiudibile, spostabile, con scorciatoia da tastiera. | M |
+| FR-143 | I visitatori non autenticati **non scaricano** il widget e non ne vedono traccia; le pagine restano leggere e identiche per tutti. | M |
+| FR-144 | Il widget contiene la **chat** e delle schede di gestione (pagina corrente, sito, sviluppo, utenti e permessi, AI, audit). Ogni utente vede **solo le schede e le azioni permesse** dai suoi permessi. | M |
+| FR-145 | La chat conosce la **pagina corrente**: "cambia il titolo" si riferisce alla pagina in cui ci si trova. | M |
+| FR-146 | **Selezione sulla pagina:** l'utente può cliccare un elemento (un titolo, un'immagine, una sezione) per indicarlo alla chat. | S |
+| FR-147 | **Anteprima sul posto:** le modifiche proposte appaiono direttamente nella pagina, evidenziate, prima della conferma. | M |
+| FR-148 | Il widget indica chiaramente l'ambiente (Produzione / Staging) e permette di passare dall'uno all'altro restando sulla stessa pagina. | M |
+| FR-149 | Il widget non altera l'aspetto del sito (stili isolati) ed è accessibile (WCAG 2.1 AA). | M |
+| FR-150 | Le bozze non ancora pubblicate si possono visitare al loro indirizzo e dal widget, ma solo da chi ha i permessi di lettura; per i visitatori non esistono. | M |
+
+#### Pagina iniziale
+
+| ID | Requisito | Priorità |
+|---|---|---|
+| FR-151 | Al primo avvio il sito ha **una sola pagina, la home, completamente bianca**: nessun tema, header, footer o menu predefinito. | M |
+| FR-152 | La home bianca è comunque un documento HTML valido, con lingua e titolo del sito. | M |
+| FR-153 | La home è modificabile come qualsiasi altra pagina, dal widget. | M |
+
+### 5.12 Qualità dell'HTML
+
+Ogni pagina prodotta, statica o dinamica, **deve rispettare le regole dell'HTML**.
+L'agente le conosce, le applica da solo e corregge gli errori prima di proporre una modifica.
+
+| ID | Requisito | Priorità |
+|---|---|---|
+| FR-160 | Le pagine sono **HTML5 valido**. | M |
+| FR-161 | **Head completo:** lingua della pagina, codifica, viewport, `<title>` unico nel sito, descrizione, URL canonico, dati per la condivisione social (Open Graph). | M |
+| FR-162 | **Titoli:** esattamente un `<h1>` per pagina con contenuto; livelli in ordine, senza salti (`h2` → `h4` non è ammesso); i titoli descrivono la struttura della pagina. | M |
+| FR-163 | **Struttura semantica:** un solo `<main>`; uso corretto di `<header>`, `<nav>`, `<footer>`, `<article>`, `<section>`, `<aside>`. | M |
+| FR-164 | **Accessibilità di base:** testo alternativo per le immagini, link e pulsanti con testo comprensibile, etichette nei form, contrasto sufficiente (NFR-07). | M |
+| FR-165 | Header, footer e menu sono **elementi condivisi del sito**: si modificano una volta e valgono per tutte le pagine. | M |
+| FR-166 | Titolo, descrizione e dati social di ogni pagina si possono vedere e modificare dal widget o dalla chat. | M |
+| FR-167 | `sitemap.xml` e `robots.txt` sono generati automaticamente dalle pagine pubblicate. | M |
+| FR-168 | Gli errori gravi **bloccano la pubblicazione** (es. due `<h1>`, titolo mancante); quelli minori sono avvisi (es. descrizione troppo lunga). L'utente vede sempre il motivo. | M |
+
 ---
 
 ## 6. Flussi principali
 
 ### 6.1 Modifica di una pagina statica in produzione
 
-1. Il redattore apre la chat in **Produzione**: "Aggiorna gli orari nella pagina Contatti".
-2. L'agente contenuti verifica i permessi (`w` sul nodo `/site/pages/contatti`).
-3. Mostra l'anteprima con le differenze evidenziate.
-4. Il redattore conferma. Viene creata una nuova versione in bozza.
-5. Se il redattore ha `p`, pubblica; altrimenti la bozza resta in attesa di un editor.
-6. La pagina pubblica si aggiorna senza nuovo deploy. La modifica è annullabile.
+1. Il redattore, autenticato, naviga sul sito fino alla pagina Contatti e apre il widget.
+2. Scrive in chat: "Aggiorna gli orari di apertura".
+3. L'agente contenuti verifica i permessi (`w` sul nodo `/site/pages/contatti`) e le regole HTML.
+4. La modifica appare in anteprima direttamente nella pagina, con le differenze evidenziate.
+5. Il redattore conferma. Viene creata una nuova versione in bozza.
+6. Se il redattore ha `p`, pubblica; altrimenti la bozza resta in attesa di un editor.
+7. La pagina pubblica si aggiorna senza nuovo deploy. La modifica è annullabile.
 
-### 6.2 Nuova funzionalità dinamica
+### 6.2 Primo avvio
 
-1. Lo sviluppatore apre la chat in **Staging**: "Voglio un catalogo prodotti con filtri per categoria e prezzo".
+1. Si avvia il sistema: il sito mostra una pagina bianca.
+2. Root accede da `/_cms/login` e torna sulla home, ora con il widget.
+3. Dal widget collega una connessione AI (abbonamento o chiave API).
+4. Scrive in chat: "Crea un sito per il mio studio di architettura: home con presentazione,
+   pagine Progetti, Chi siamo e Contatti, con header e menu".
+5. L'agente propone struttura, layout condiviso e contenuti; l'anteprima appare sulla home.
+6. Root conferma e pubblica.
+
+### 6.3 Nuova funzionalità dinamica
+
+1. Lo sviluppatore apre il widget sul sito di **Staging**: "Voglio un catalogo prodotti con filtri per categoria e prezzo".
 2. L'agente sviluppatore propone un piano: collezione `prodotti`, pagine elenco e dettaglio, componenti.
 3. Dopo la conferma scrive codice, schema e migrazione in un nuovo changeset.
 4. Partono i controlli automatici. In caso di errore l'agente corregge.
@@ -436,7 +496,7 @@ Riserve, limiti di spesa e cruscotto arrivano dopo.
 8. La release viene applicata in produzione: backup, schema, codice. Il catalogo è online.
 9. In caso di problemi, rollback con un comando.
 
-### 6.3 Gestione permessi
+### 6.4 Gestione permessi
 
 1. L'amministratore scrive in chat: "Il gruppo *traduttori* deve poter modificare solo le pagine inglesi, ma non pubblicarle".
 2. L'agente traduce la richiesta in regole (ACL `g:traduttori:rlxw` su `/site/pages/en` con ereditarietà) e mostra l'effetto: chi guadagna o perde cosa.
@@ -462,6 +522,7 @@ Riserve, limiti di spesa e cruscotto arrivano dopo.
 
 - Deploy in cloud o su più server (arriverà dopo l'ambiente locale).
 - Editor visuale drag-and-drop.
+- Pannello di amministrazione separato (per scelta, non per rinvio: vedi 5.11).
 - Più siti gestiti dalla stessa istanza.
 - Login con provider esterni (Google, SSO aziendale).
 - E-commerce con pagamenti reali.
@@ -471,8 +532,9 @@ Riserve, limiti di spesa e cruscotto arrivano dopo.
 
 ## 9. Criteri di accettazione della prima release
 
-1. Con `docker compose up` partono produzione, staging e console; si accede come root.
-2. Un redattore crea e pubblica una pagina statica in produzione **solo via chat**.
+1. Con `docker compose up` partono produzione e staging; il sito è una pagina bianca, valida come HTML.
+    Root accede da `/_cms/login` e trova il widget su ogni pagina.
+2. Un redattore crea e pubblica una pagina statica in produzione **solo dal widget**, senza aprire alcuna area di amministrazione.
 3. Un redattore **non riesce** a modificare codice in produzione, e l'agente spiega perché.
 4. Uno sviluppatore crea in staging una collezione e una pagina dinamica via chat; i controlli passano.
 5. Un revisore approva con un clic; la pagina dinamica compare in produzione con i suoi dati.
@@ -482,6 +544,8 @@ Riserve, limiti di spesa e cruscotto arrivano dopo.
 9. Ogni azione dei punti precedenti è presente nel registro di audit.
 10. L'agente sviluppatore completa il punto 4 sia con un **abbonamento** (es. Claude Code)
     sia con una **chiave API** di un provider diverso, senza modifiche al resto del sistema.
+11. Un visitatore non autenticato non scarica il widget.
+12. Una pagina con due `<h1>` o senza `<title>` non si può pubblicare, e l'agente corregge l'errore.
 
 ---
 
