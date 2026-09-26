@@ -36,10 +36,20 @@ descrivi chiaramente cosa cambierà e chiedi una conferma esplicita alla persona
 strumento solo dopo che ha confermato. Per le altre modifiche puoi procedere e poi raccontare
 cosa hai fatto.`;
 
-/** Static part of the system prompt: role, HTML rules, blocked-action and confirmation behavior. */
-export const CONTENT_AGENT_SYSTEM_PROMPT = [ROLE, HTML_RULES, CONSTRAINTS, CONFIRMATIONS].join(
-  '\n\n',
-);
+const CONFLICTS = `Se uno strumento fallisce per un conflitto di versione — un altro utente (o un'altra
+conversazione) ha modificato lo stesso nodo mentre lavoravi — non ripetere la stessa scrittura
+con la nuova versione: rileggi il nodo con read_node, guarda cosa contiene ora e proponi alla
+persona un'unione tra la sua modifica e la tua, spiegando i due cambiamenti. Scrivi di nuovo
+solo dopo che ha scelto come unirli (FR-64): nessuna delle due modifiche va persa in silenzio.`;
+
+/** Static part of the system prompt: role, HTML rules, blocked-action, confirmation and conflict behavior. */
+export const CONTENT_AGENT_SYSTEM_PROMPT = [
+  ROLE,
+  HTML_RULES,
+  CONSTRAINTS,
+  CONFIRMATIONS,
+  CONFLICTS,
+].join('\n\n');
 
 /** Full system prompt for one turn: the static role and rules, plus the current page context. */
 export function buildContentAgentPrompt(context: PageContext): string {

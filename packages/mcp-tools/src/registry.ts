@@ -1,5 +1,6 @@
 import { defineTool, toToolSpec, type Tool, type ToolContext, type ToolSpec } from '@ai-cms/ai';
 import { AuthzError, type Env, type Principal } from '@ai-cms/authz';
+import { ConflictError } from '@ai-cms/tree';
 import { z } from 'zod';
 
 /**
@@ -62,6 +63,14 @@ function stringifyOutput(output: unknown): string {
 /** Italian message for a failed tool call, safe to show to the model and the user. */
 export function toolErrorMessage(err: unknown): string {
   if (err instanceof AuthzError) return `Permesso negato: ${err.message}`;
+  if (err instanceof ConflictError) {
+    // FR-64: the model should not just retry the same write with the new version, it should
+    // read what changed and offer the user a merge of the two sets of changes.
+    return (
+      `${err.message} Non sovrascrivere semplicemente con la stessa modifica: leggi di nuovo ` +
+      "il nodo e proponi all'utente un'unione tra le tue modifiche e quelle già salvate."
+    );
+  }
   if (err instanceof Error) return `Errore: ${err.message}`;
   return `Errore: ${String(err)}`;
 }

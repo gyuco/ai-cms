@@ -1,4 +1,5 @@
 import { AuthzError, contentAgentProfile, type Principal } from '@ai-cms/authz';
+import { ConflictError } from '@ai-cms/tree';
 import { LATEST_PROTOCOL_VERSION } from '@modelcontextprotocol/sdk/types.js';
 import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
@@ -34,6 +35,19 @@ const add = defineCmsTool({
   run: ({ a, b }) => a + b,
 });
 
+const conflicted = defineCmsTool({
+  name: 'conflicted',
+  description: 'Always conflicts',
+  input: z.object({}),
+  run: () => {
+    throw new ConflictError({
+      path: '/site/pages/chi-siamo',
+      expectedVersion: 2,
+      currentVersion: 3,
+    });
+  },
+});
+
 const broken = defineCmsTool({
   name: 'broken',
   description: 'Fails unexpectedly',
@@ -45,7 +59,7 @@ const broken = defineCmsTool({
 
 function setup() {
   const registry = createToolRegistry();
-  for (const tool of [whoamiTool, forbidden, add, broken]) registry.register(tool);
+  for (const tool of [whoamiTool, forbidden, add, broken, conflicted]) registry.register(tool);
   const records: ToolCallRecord[] = [];
   const handler = createMcpHandler({
     registry,
@@ -106,7 +120,13 @@ describe('MCP handler', () => {
     const { handler } = setup();
     const res = await handler(rpc('tools/list', {}));
     const body = (await res.json()) as { result: { tools: Record<string, unknown>[] } };
-    expect(body.result.tools.map((t) => t.name)).toEqual(['whoami', 'forbidden', 'add', 'broken']);
+    expect(body.result.tools.map((t) => t.name)).toEqual([
+      'whoami',
+      'forbidden',
+      'add',
+      'broken',
+      'conflicted',
+    ]);
     expect(body.result.tools[2]).toMatchObject({
       name: 'add',
       description: 'Adds two numbers',
@@ -141,6 +161,17 @@ describe('MCP handler', () => {
       isError: true,
     });
     expect(records[0]).toMatchObject({ tool: 'forbidden', isError: true });
+  });
+
+  it('turns ConflictError into a merge proposal instead of a bare retry (FR-64)', async () => {
+    const { handler, records } = setup();
+    const result = await callTool(handler, 'conflicted');
+    expect(result.isError).toBe(true);
+    expect(result.content[0]!.text).toContain(
+      '/site/pages/chi-siamo è stato modificato da qualcun altro',
+    );
+    expect(result.content[0]!.text).toContain("proponi all'utente un'unione");
+    expect(records[0]).toMatchObject({ tool: 'conflicted', isError: true });
   });
 
   it('reports invalid input, unknown tools and unexpected failures without crashing', async () => {

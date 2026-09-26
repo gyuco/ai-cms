@@ -25,6 +25,11 @@ describe('CONTENT_AGENT_SYSTEM_PROMPT', () => {
   it('requires explicit confirmation before destructive operations', () => {
     expect(CONTENT_AGENT_SYSTEM_PROMPT).toContain('conferma esplicita');
   });
+
+  it('tells the agent to propose a merge on a version conflict instead of overwriting (FR-64)', () => {
+    expect(CONTENT_AGENT_SYSTEM_PROMPT).toContain('conflitto di versione');
+    expect(CONTENT_AGENT_SYSTEM_PROMPT).toContain("un'unione");
+  });
 });
 
 describe('buildContentAgentPrompt', () => {
