@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "rules": [
+    { "tree": "/site/pages/{path}/page.tsx", "repo": "app/(dynamic)/{path}/page.tsx" },
+    { "tree": "/site/components/{path}", "repo": "components/{path}" },
+    { "tree": "/code/api/{path}", "repo": "api/{path}" },
+    { "tree": "/code/lib/{path}", "repo": "lib/{path}" },
+    { "tree": "/code/migrations/{path}", "repo": "db/migrations/{path}" },
+    { "tree": "/data/collections/{name}/schema", "repo": "db/schema/{name}.ts" }
+  ],
+  "files": []
+}

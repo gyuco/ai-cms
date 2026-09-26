@@ -23,7 +23,16 @@
 	}
 }
 
+# Site-internal endpoints (e.g. POST /__cms/revalidate) are for cms-api on the Docker network only.
+(internal) {
+	@internal path /__cms /__cms/*
+	handle @internal {
+		respond "Not found" 404
+	}
+}
+
 http://www.localhost {
+	import internal
 	import cms prod
 	handle {
 		reverse_proxy site-prod:3000
@@ -31,6 +40,7 @@ http://www.localhost {
 }
 
 http://staging.localhost {
+	import internal
 	import cms staging
 	handle {
 		reverse_proxy site-staging:3000

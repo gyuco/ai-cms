@@ -1,0 +1,107 @@
+/*
+ * Minimal, neutral base styles for content pages. No colours or backgrounds: an empty page
+ * stays blank. Site themes are added on top of this.
+ */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    'Helvetica Neue',
+    Arial,
+    sans-serif;
+  font-size: 1.0625rem;
+  line-height: 1.6;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body > header,
+body > main,
+body > footer {
+  max-width: 72rem;
+  margin-inline: auto;
+  padding-inline: 1rem;
+}
+
+/* Readable line length for running text. */
+:where(main, header, footer)
+  :where(p, ul, ol, blockquote, h1, h2, h3, h4, h5, h6, figure.cms-quote) {
+  max-width: 68ch;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  line-height: 1.25;
+  margin: 1.5em 0 0.5em;
+}
+
+p,
+ul,
+ol,
+blockquote,
+figure {
+  margin: 0 0 1em;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+figcaption {
+  font-size: 0.875em;
+  margin-top: 0.5em;
+}
+
+blockquote {
+  margin-inline: 0;
+  padding-inline-start: 1em;
+  border-inline-start: 0.25em solid currentColor;
+}
+
+code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.9em;
+}
+
+.cms-gallery {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+}
+
+.cms-gallery figure {
+  margin: 0;
+}
+
+.cms-button {
+  display: inline-block;
+  padding: 0.5em 1.25em;
+  border: 2px solid currentColor;
+  border-radius: 0.25em;
+  font-weight: 600;
+  text-decoration: none;
+  color: inherit;
+}
+
+.cms-button--secondary {
+  border-color: transparent;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
