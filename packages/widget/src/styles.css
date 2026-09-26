@@ -1,13 +1,395 @@
 /*
  * Every rule lives in the shadow root. The host is reset and takes no space, so the widget
  * never changes the page layout; its visible parts are fixed to the viewport.
+ * All text/background pairs meet WCAG AA (4.5:1) in both themes.
+ *
+ * The host element belongs to the page, so page rules (even `* { … }`) beat plain :host rules:
+ * its box is locked with !important, and text styles are set on .root inside the shadow tree.
  */
 :host {
-  all: initial;
+  all: initial !important;
+  display: block !important;
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 0 !important;
+  height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  overflow: visible !important;
+  z-index: 2147483000 !important;
+
+  color-scheme: light !important;
+  --bg: #ffffff;
+  --surface: #f3f4f7;
+  --text: #16181d;
+  --muted: #4b5260;
+  --border: #d0d4dc;
+  --accent: #2f5bea;
+  --accent-hover: #2349c7;
+  --accent-text: #ffffff;
+  --focus: #2f5bea;
+  --error-bg: #fdecec;
+  --error-text: #9b1c1c;
+  --notice-bg: #fff4d6;
+  --notice-text: #5c3d00;
+  --prod: #b42318;
+  --prod-text: #ffffff;
+  --staging: #f5a524;
+  --staging-text: #1d1400;
+  --shadow: 0 12px 32px rgb(15 17 21 / 0.22), 0 2px 6px rgb(15 17 21 / 0.12);
+}
+
+@media (prefers-color-scheme: dark) {
+  :host {
+    color-scheme: dark !important;
+    --bg: #1a1d24;
+    --surface: #12141a;
+    --text: #eceef2;
+    --muted: #a8aebb;
+    --border: #353b47;
+    --accent: #8aa4ff;
+    --accent-hover: #a9bcff;
+    --accent-text: #0f1115;
+    --focus: #a9bcff;
+    --error-bg: #3a1616;
+    --error-text: #ffb4b4;
+    --notice-bg: #3a2c05;
+    --notice-text: #ffe29a;
+    --prod: #f97066;
+    --prod-text: #1f0706;
+    --staging: #fdb022;
+    --staging-text: #1d1400;
+    --shadow: 0 12px 32px rgb(0 0 0 / 0.55), 0 2px 6px rgb(0 0 0 / 0.4);
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+.root {
+  font:
+    14px/1.45 system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    'Helvetica Neue',
+    Arial,
+    sans-serif;
+  color: var(--text);
+  text-align: left;
+  letter-spacing: normal;
+  -webkit-font-smoothing: antialiased;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  margin: 0;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* Launcher */
+
+.launcher {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 0;
-  height: 0;
-  z-index: 2147483000;
+  right: 16px;
+  bottom: 16px;
+  width: 52px;
+  height: 52px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  box-shadow:
+    0 0 0 3px var(--bg),
+    0 0 0 6px var(--env),
+    var(--shadow);
+}
+
+.launcher:hover {
+  background: var(--accent-hover);
+}
+
+.launcher:focus-visible {
+  outline-offset: 8px;
+}
+
+.env-prod {
+  --env: var(--prod);
+  --env-text: var(--prod-text);
+}
+
+.env-staging {
+  --env: var(--staging);
+  --env-text: var(--staging-text);
+}
+
+/* Panel */
+
+.panel {
+  position: fixed;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-top: 4px solid var(--env);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+}
+
+.titlebar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 6px 6px 10px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  cursor: move;
+  user-select: none;
+  touch-action: none;
+}
+
+.titlebar:focus-visible {
+  outline-offset: -2px;
+}
+
+.grip {
+  width: 10px;
+  height: 16px;
+  flex: none;
+  background-image: radial-gradient(circle, var(--muted) 1.2px, transparent 1.4px);
+  background-size: 5px 5px;
+}
+
+.title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.env-badge {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--env);
+  color: var(--env-text);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.icon-button {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.icon-button:hover {
+  background: var(--border);
+}
+
+.icon-button svg {
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+}
+
+.userbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.user {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.button {
+  flex: none;
+  padding: 5px 10px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.button:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+.button.secondary {
+  background: transparent;
+  border-color: var(--border);
+  color: var(--text);
+}
+
+.button.secondary:hover {
+  background: var(--surface);
+}
+
+.button:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.notice,
+.error {
+  margin: 8px 10px 0;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.notice {
+  background: var(--notice-bg);
+  color: var(--notice-text);
+}
+
+.notice a {
+  color: inherit;
+  font-weight: 700;
+}
+
+.error {
+  background: var(--error-bg);
+  color: var(--error-text);
+}
+
+/* Tabs */
+
+.tablist {
+  display: flex;
+  flex: none;
+  gap: 2px;
+  padding: 6px 8px 0;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--border);
+  scrollbar-width: thin;
+}
+
+.tab {
+  flex: none;
+  padding: 6px 8px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.tab:hover {
+  color: var(--text);
+}
+
+.tab[aria-selected='true'] {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+}
+
+.tab:focus-visible {
+  outline-offset: -2px;
+}
+
+.tabpanel {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 16px;
+}
+
+.tabpanel:focus-visible {
+  outline-offset: -3px;
+}
+
+.placeholder {
+  display: grid;
+  gap: 4px;
+  padding: 16px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  text-align: center;
+}
+
+.placeholder p {
+  margin: 0;
+}
+
+.placeholder-title {
+  font-weight: 700;
+}
+
+.placeholder-text {
+  color: var(--muted);
+}
+
+.resize-handle {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  background:
+    linear-gradient(135deg, transparent 55%, var(--muted) 55%, var(--muted) 62%, transparent 62%),
+    linear-gradient(135deg, transparent 75%, var(--muted) 75%, var(--muted) 82%, transparent 82%);
+  cursor: nwse-resize;
+  touch-action: none;
+}
+
+@media (forced-colors: active) {
+  .panel,
+  .launcher {
+    border: 2px solid CanvasText;
+  }
 }
