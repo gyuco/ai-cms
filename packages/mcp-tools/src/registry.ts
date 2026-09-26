@@ -114,3 +114,15 @@ export function createToolRegistry<Extra extends object = object>(): ToolRegistr
   };
   return registry;
 }
+
+/**
+ * Registers a group of tools, e.g. `contentTools`. `register` is generic on the schema of a
+ * single tool, so a list of tools with different inputs does not fit it: the one cast this
+ * needs lives here, and the registry still validates each input against its own schema.
+ */
+export function registerTools<Extra extends object = object>(
+  registry: ToolRegistry<Extra>,
+  tools: readonly CmsTool<z.ZodObject, Extra>[],
+): void {
+  for (const tool of tools) registry.register(tool);
+}

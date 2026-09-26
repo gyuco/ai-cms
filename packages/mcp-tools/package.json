@@ -12,7 +12,13 @@
   "dependencies": {
     "@ai-cms/ai": "workspace:*",
     "@ai-cms/authz": "workspace:*",
+    "@ai-cms/content": "workspace:*",
+    "@ai-cms/tree": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.30.1",
     "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@ai-cms/db": "workspace:*",
+    "sharp": "^0.35.4"
   }
 }

@@ -4,7 +4,13 @@
  * and shared elements, because that is what the visitor will get: a draft checked against
  * another header would pass here and fail on the site.
  */
-import { parsePageBody, type PageBody, type SiteSettings } from '@ai-cms/content';
+import {
+  parseLayout,
+  parsePageBody,
+  type Layout,
+  type PageBody,
+  type SiteSettings,
+} from '@ai-cms/content';
 import { getSharedElements, type RenderValidator } from '@ai-cms/content/service';
 import type { Principal } from '@ai-cms/authz';
 import { schema, type Database } from '@ai-cms/db';
@@ -23,6 +29,12 @@ const FOOTER = 'footer';
 
 /** Only the pages of the site have a title that must be unique. */
 const PAGES_LTREE = 'site.pages';
+
+/**
+ * The page a shared layout is checked inside: the layout is what the site wraps around it, so
+ * the page carries no content of its own and the layout is the only thing under test.
+ */
+const BLANK_PAGE: PageBody = { meta: { title: 'Bottega' }, blocks: [] };
 
 /** One line per blocking error, with where it is, as the user and the agent read it. */
 export function violationLines(errors: readonly Violation[]): string[] {
@@ -72,9 +84,25 @@ export interface PageCheck {
   warnings: string[];
 }
 
+/** The body a node can hold, once parsed; the agent tools check all of them. */
+type DocumentBody = { kind: 'page'; body: PageBody } | { kind: 'layout'; body: Layout };
+
 /**
- * Renders a page version as the site would and validates it. `path` is the ltree path of the
- * node (`/site/pages/chi-siamo`) and `body` the body of the version to check.
+ * What the body is. A layout (`/site/layouts/header`) is checked as the part it becomes, that
+ * is around a page; a page is checked as a page. Anything else has no HTML rules of its own.
+ */
+function parseDocument(path: string, body: unknown): DocumentBody | { error: string } {
+  if (/\/site\/layouts\/[^/]+$/.test(path) || path === '/site/layouts/header') {
+    const layout = parseLayout(body);
+    return layout.ok ? { kind: 'layout', body: layout.value } : { error: 'layout non valido' };
+  }
+  const page = parsePageBody(body);
+  return page.ok ? { kind: 'page', body: page.value } : { error: 'pagina non valida' };
+}
+
+/**
+ * Renders a version as the site would and validates it. `path` is the public path of the node
+ * (`/site/pages/chi-siamo`) and `body` the body of the version to check.
  */
 export async function checkPageVersion(
   db: Database,
@@ -86,23 +114,33 @@ export async function checkPageVersion(
   const shared = await getSharedElements(db, principal, env);
   // A site that has never published its settings renders with the defaults, like the template.
   const settings = shared.settings ?? DEFAULT_SETTINGS;
-  const parsed = parsePageBody(body);
-  if (!parsed.ok) {
+  const document = parseDocument(path, body);
+  if ('error' in document) {
     // Bodies are normalized on save, so this means the content was corrupted: say so rather
-    // than let it through.
+    // than let it through. A menu has no HTML of its own: it is checked on the pages it links.
     return {
       errors: [`Il contenuto di ${path} non è valido e non può essere verificato.`],
       warnings: [],
     };
   }
-  const report = await checkPageRules({
-    page: parsed.value as PageBody,
-    nodePath: path,
-    settings,
-    header: shared.layouts[HEADER] ?? null,
-    footer: shared.layouts[FOOTER] ?? null,
-    otherTitles: await otherPublishedTitles(db, env, settings, path),
-  });
+  const report =
+    document.kind === 'layout'
+      ? // A shared layout is rendered around a page, so the check needs a page to sit in.
+        await checkPageRules({
+          page: BLANK_PAGE,
+          nodePath: path,
+          settings,
+          header: document.body,
+          otherTitles: [],
+        })
+      : await checkPageRules({
+          page: document.body,
+          nodePath: path,
+          settings,
+          header: shared.layouts[HEADER] ?? null,
+          footer: shared.layouts[FOOTER] ?? null,
+          otherTitles: await otherPublishedTitles(db, env, settings, path),
+        });
   return { errors: violationLines(report.errors), warnings: violationLines(report.warnings) };
 }
 
