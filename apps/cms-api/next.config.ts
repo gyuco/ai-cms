@@ -15,6 +15,7 @@ const config: NextConfig = {
     '@ai-cms/authz',
     '@ai-cms/content',
     '@ai-cms/db',
+    '@ai-cms/html-rules',
     '@ai-cms/mcp-tools',
     '@ai-cms/pipeline',
     '@ai-cms/site-kit',

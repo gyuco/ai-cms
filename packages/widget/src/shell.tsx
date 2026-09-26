@@ -3,6 +3,8 @@ import type { Me } from './api.ts';
 import { clampRect, defaultRect, type Rect, type Size } from './geometry.ts';
 import { isToggleShortcut } from './keys.ts';
 import { Panel, PANEL_ID } from './panel.tsx';
+import { SelectionOverlay } from './selection-ui.tsx';
+import { selection } from './selection.ts';
 import { loadState, saveState, type WidgetState } from './storage.ts';
 import type { TabId } from './tabs/index.ts';
 
@@ -26,7 +28,7 @@ function useViewport(): Size {
 }
 
 /** Floating launcher button plus the movable, resizable panel (E7.3). */
-export function Shell({ me }: { me: Me }) {
+export function Shell({ me, pagePath = null }: { me: Me; pagePath?: string | null }) {
   const [state, setState] = useState<WidgetState>(() => loadState());
   const viewport = useViewport();
   const launcherRef = useRef<HTMLButtonElement>(null);
@@ -34,7 +36,12 @@ export function Shell({ me }: { me: Me }) {
   // Focus moves only after an explicit open/close, never when the page restores an open panel.
   const pendingFocus = useRef<'panel' | 'launcher' | null>(null);
 
+  const [preview, setPreview] = useState<Element | null>(null);
+
   useEffect(() => saveState(state), [state]);
+  useEffect(() => {
+    if (!state.open) selection.cancel();
+  }, [state.open]);
 
   const toggle = useCallback((open?: boolean) => {
     setState((current) => {
@@ -71,6 +78,7 @@ export function Shell({ me }: { me: Me }) {
 
   return (
     <div class="root">
+      <SelectionOverlay preview={preview} fallbackPath={pagePath} />
       <button
         ref={launcherRef}
         type="button"
@@ -94,6 +102,8 @@ export function Shell({ me }: { me: Me }) {
         onRectChange={setRect}
         onTabChange={setTab}
         onClose={() => toggle(false)}
+        pagePath={pagePath}
+        onPreview={setPreview}
       />
     </div>
   );

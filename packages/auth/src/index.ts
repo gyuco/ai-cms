@@ -45,3 +45,10 @@ export {
   type SessionUser,
 } from './sessions.ts';
 export { generateToken, hashToken, safeEqual } from './tokens.ts';
+export {
+  listUsers,
+  reactivateUser,
+  suspendUser,
+  type UserStatusChangeResult,
+  type UserSummary,
+} from './users.ts';

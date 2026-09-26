@@ -15,6 +15,27 @@ export interface Me {
   csrfToken: string;
 }
 
+/** The page behind the current URL (`GET /_cms/api/context`, TECHNICAL §10.3). */
+export interface NodeInfo {
+  /** Public node path, e.g. `/site/pages/chi-siamo`; null when the URL cannot be a page. */
+  path: string | null;
+  kind: string | null;
+  exists: boolean;
+  version: number | null;
+}
+
+export interface PageStatus {
+  latestVersion: number | null;
+  publishedVersion: number | null;
+  hasDraft: boolean;
+}
+
+export interface WidgetContext extends Me {
+  /** Null while a password change is pending. */
+  node: NodeInfo | null;
+  page: PageStatus | null;
+}
+
 export const API_BASE = '/_cms/api';
 
 type FetchFn = typeof fetch;
@@ -23,6 +44,7 @@ export class ApiError extends Error {
   constructor(
     readonly status: number,
     message: string,
+    readonly code?: string,
   ) {
     super(message);
   }
@@ -30,11 +52,12 @@ export class ApiError extends Error {
 
 async function failure(response: Response): Promise<ApiError> {
   const body = (await response.json().catch(() => null)) as {
-    error?: { message?: string };
+    error?: { message?: string; code?: string };
   } | null;
   return new ApiError(
     response.status,
     body?.error?.message ?? 'Si è verificato un errore. Riprova tra poco.',
+    body?.error?.code,
   );
 }
 
@@ -46,12 +69,16 @@ export function clearUiCookie(doc: Pick<Document, 'cookie'> = document): void {
   doc.cookie = `${UI_COOKIE_NAME}=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax`;
 }
 
-/** The signed-in user, or `null` when there is no valid session (401). */
-export async function fetchMe(
+/**
+ * The session and the page at `path` (the site URL path), or `null` when there is no valid
+ * session (401).
+ */
+export async function fetchContext(
+  path: string,
   fetchFn: FetchFn = fetch,
   doc: Pick<Document, 'cookie'> = document,
-): Promise<Me | null> {
-  const response = await fetchFn(`${API_BASE}/auth/me`, {
+): Promise<WidgetContext | null> {
+  const response = await fetchFn(`${API_BASE}/context?path=${encodeURIComponent(path)}`, {
     credentials: 'same-origin',
     headers: { accept: 'application/json' },
   });
@@ -60,7 +87,45 @@ export async function fetchMe(
     return null;
   }
   if (!response.ok) throw await failure(response);
-  return (await response.json()) as Me;
+  return (await response.json()) as WidgetContext;
+}
+
+export type Query = Record<string, string | number | null | undefined>;
+
+/** JSON client for the CMS API; mutating calls carry the session's CSRF token. */
+export interface Api {
+  get<T>(path: string, query?: Query): Promise<T>;
+  send<T>(method: 'POST' | 'PUT' | 'PATCH' | 'DELETE', path: string, body?: unknown): Promise<T>;
+}
+
+export function withQuery(path: string, query: Query = {}): string {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(query)) {
+    if (value !== null && value !== undefined && value !== '') params.set(key, String(value));
+  }
+  const search = params.toString();
+  return search ? `${path}?${search}` : path;
+}
+
+export function createApi(csrfToken: string, fetchFn: FetchFn = fetch): Api {
+  const call = async <T>(path: string, init: RequestInit): Promise<T> => {
+    const response = await fetchFn(`${API_BASE}${path}`, { credentials: 'same-origin', ...init });
+    if (!response.ok) throw await failure(response);
+    return (await response.json()) as T;
+  };
+  return {
+    get: (path, query) => call(withQuery(path, query), { headers: { accept: 'application/json' } }),
+    send: (method, path, body) =>
+      call(path, {
+        method,
+        headers: {
+          accept: 'application/json',
+          'content-type': 'application/json',
+          'x-csrf-token': csrfToken,
+        },
+        body: body === undefined ? undefined : JSON.stringify(body),
+      }),
+  };
 }
 
 function post(fetchFn: FetchFn, path: string, csrfToken: string, body: unknown = {}) {

@@ -100,6 +100,9 @@ importers:
       '@ai-cms/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@ai-cms/html-rules':
+        specifier: workspace:*
+        version: link:../../packages/html-rules
       '@ai-cms/mcp-tools':
         specifier: workspace:*
         version: link:../../packages/mcp-tools

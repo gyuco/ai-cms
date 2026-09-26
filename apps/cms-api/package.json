@@ -17,6 +17,7 @@
     "@ai-cms/authz": "workspace:*",
     "@ai-cms/content": "workspace:*",
     "@ai-cms/db": "workspace:*",
+    "@ai-cms/html-rules": "workspace:*",
     "@ai-cms/mcp-tools": "workspace:*",
     "@ai-cms/pipeline": "workspace:*",
     "@ai-cms/site-kit": "workspace:*",

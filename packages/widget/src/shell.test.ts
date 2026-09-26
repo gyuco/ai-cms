@@ -2,11 +2,12 @@
 import { h, render } from 'preact';
 import { act } from 'preact/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Me } from './api.ts';
+import type { WidgetContext } from './api.ts';
 import { App } from './app.tsx';
+import { selection } from './selection.ts';
 import { STORAGE_KEY } from './storage.ts';
 
-const me: Me = {
+const me: WidgetContext = {
   user: {
     uid: 1,
     username: 'anna',
@@ -16,6 +17,8 @@ const me: Me = {
   },
   env: 'staging',
   csrfToken: 'csrf-1',
+  node: { path: '/site/pages/index', kind: 'page', exists: true, version: 1 },
+  page: { latestVersion: 1, publishedVersion: 1, hasDraft: false },
 };
 
 let container: HTMLElement;
@@ -89,7 +92,7 @@ describe('Shell', () => {
     const panel = $(`#${selected.getAttribute('aria-controls')}`)!;
     expect(panel.getAttribute('role')).toBe('tabpanel');
     expect(panel.hidden).toBe(false);
-    expect(panel.textContent).toContain('Disponibile a breve');
+    expect(panel.textContent).toContain('Registro delle azioni');
   });
 
   it('closes with Escape and returns focus to the launcher', async () => {
@@ -120,5 +123,42 @@ describe('Shell', () => {
     expect(parseInt(dialog.style.left, 10)).toBe(before - 16);
     const stored = JSON.parse(localStorage.getItem(STORAGE_KEY)!) as { rect: { x: number } };
     expect(stored.rect.x).toBe(before - 16);
+  });
+
+  it('selects a page block from the keyboard list; Esc cancels without closing', async () => {
+    const page = document.createElement('main');
+    page.dataset.cmsNode = '/site/pages/index';
+    page.innerHTML = '<h1 data-cms-block="t1">Benvenuti</h1><p data-cms-block="p1">Testo</p>';
+    document.body.append(page);
+    try {
+      await renderApp();
+      await act(() => $('.launcher')!.click());
+      const toggle = $('button[aria-label="Seleziona un elemento della pagina"]')!;
+
+      await act(() => toggle.click());
+      expect(toggle.getAttribute('aria-pressed')).toBe('true');
+      expect($('.select-layer')).not.toBeNull();
+      const choices = [...container.querySelectorAll<HTMLElement>('.block-choice')];
+      expect(choices.map((c) => c.textContent)).toEqual(['Titolo Benvenuti', 'Paragrafo Testo']);
+      expect(document.activeElement).toBe(choices[0]);
+
+      await act(() => press(choices[0]!, 'Escape'));
+      expect(selection.get().selecting).toBe(false);
+      expect($('[role="dialog"]')!.hidden).toBe(false);
+      expect(document.activeElement).toBe(toggle);
+
+      await act(() => toggle.click());
+      await act(() => container.querySelectorAll<HTMLElement>('.block-choice')[1]!.click());
+      expect(selection.get().selected).toEqual({
+        path: '/site/pages/index',
+        blockId: 'p1',
+        text: 'Testo',
+      });
+      expect($('.selected-chip')!.textContent).toContain('Testo');
+      expect($('.select-layer')).toBeNull();
+    } finally {
+      selection.clear();
+      page.remove();
+    }
   });
 });

@@ -1,8 +1,10 @@
 import type { RefObject } from 'preact';
-import { useRef, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { logout, otherEnv, requestEnvSwitch, type Env, type Me } from './api.ts';
 import { moveRect, resizeRect, type Rect, type Size } from './geometry.ts';
 import { arrowDelta, nextTabIndex } from './keys.ts';
+import { SelectionBar } from './selection-ui.tsx';
+import { selection, useSelection } from './selection.ts';
 import { TABS, type TabId } from './tabs/index.ts';
 
 export const PANEL_ID = 'cms-panel';
@@ -21,6 +23,9 @@ interface PanelProps {
   onRectChange: (rect: Rect) => void;
   onTabChange: (tab: TabId) => void;
   onClose: () => void;
+  /** Node of the current page, for blocks outside any `data-cms-node`. */
+  pagePath: string | null;
+  onPreview: (element: Element | null) => void;
 }
 
 interface PointerDrag {
@@ -42,6 +47,15 @@ export function Panel(props: PanelProps) {
   const drag = useRef<PointerDrag | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { selecting, selected } = useSelection();
+  const selectButton = useRef<HTMLButtonElement>(null);
+  const wasSelecting = useRef(false);
+
+  // Back to the toggle once a block is chosen or the selection is cancelled.
+  useEffect(() => {
+    if (wasSelecting.current && !selecting && props.open) selectButton.current?.focus();
+    wasSelecting.current = selecting;
+  }, [selecting, props.open]);
 
   const startDrag = (mode: PointerDrag['mode']) => (event: PointerEvent) => {
     if (event.button !== 0) return;
@@ -141,6 +155,20 @@ export function Panel(props: PanelProps) {
           {ENV_LABEL[me.env]}
         </span>
         <button
+          ref={selectButton}
+          type="button"
+          class="icon-button push"
+          aria-pressed={selecting}
+          aria-label="Seleziona un elemento della pagina"
+          title="Seleziona un elemento della pagina"
+          onClick={() => (selecting ? selection.cancel() : selection.start())}
+        >
+          <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+            <circle cx="8" cy="8" r="4.5" fill="none" />
+            <path d="M8 1v3M8 12v3M1 8h3M12 8h3" />
+          </svg>
+        </button>
+        <button
           type="button"
           class="icon-button"
           aria-label="Chiudi il pannello"
@@ -176,6 +204,15 @@ export function Panel(props: PanelProps) {
           {error}
         </p>
       )}
+
+      <SelectionBar fallbackPath={props.pagePath} onPreview={props.onPreview} />
+      <p class="visually-hidden" aria-live="polite">
+        {selecting
+          ? 'Modalità selezione attiva.'
+          : selected
+            ? `Elemento selezionato: ${selected.text}.`
+            : ''}
+      </p>
 
       <Tabs tab={props.tab} onTabChange={props.onTabChange} />
 
