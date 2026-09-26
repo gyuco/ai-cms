@@ -92,7 +92,7 @@ describe('Shell', () => {
     const panel = $(`#${selected.getAttribute('aria-controls')}`)!;
     expect(panel.getAttribute('role')).toBe('tabpanel');
     expect(panel.hidden).toBe(false);
-    expect(panel.textContent).toContain('Disponibile a breve');
+    expect(panel.textContent).toContain('Registro delle azioni');
   });
 
   it('closes with Escape and returns focus to the launcher', async () => {

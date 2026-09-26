@@ -1002,6 +1002,69 @@ pre code {
   border-radius: 8px;
 }
 
+/* Audit tab */
+
+.audit-filters {
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.audit-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.audit-table th,
+.audit-table td {
+  padding: 5px 6px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.audit-table th {
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.audit-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.audit-table summary {
+  cursor: pointer;
+}
+
+.audit-table pre {
+  max-width: 260px;
+  margin-top: 4px;
+  font-size: 11px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.audit-table code {
+  overflow-wrap: normal;
+  white-space: nowrap;
+}
+
+.audit-sub {
+  display: block;
+  color: var(--muted);
+}
+
 /* Selection of page elements (E7.6) */
 
 .select-layer {

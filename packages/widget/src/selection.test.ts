@@ -1,6 +1,5 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { shortText } from './format.ts';
 import {
   blockAt,
   blockKind,
@@ -36,14 +35,6 @@ describe('selection store', () => {
     unsubscribe();
     store.start();
     expect(listener).toHaveBeenCalledTimes(5);
-  });
-});
-
-describe('shortText', () => {
-  it('collapses whitespace and truncates', () => {
-    expect(shortText('  Ciao\n\n  mondo  ')).toBe('Ciao mondo');
-    expect(shortText('abcdefghij', 6)).toBe('abcde…');
-    expect(shortText('abc', 3)).toBe('abc');
   });
 });
 

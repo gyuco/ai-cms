@@ -488,8 +488,77 @@ export function createMockState() {
     return ok({ connection });
   }
 
+  const samples = [
+    {
+      action: 'content.write',
+      nodePath: '/site/pages/chi-siamo',
+      outcome: 'ok',
+      agent: 'content-agent',
+    },
+    { action: 'content.publish', nodePath: '/site/pages/chi-siamo', outcome: 'ok', agent: null },
+    { action: 'auth.login', nodePath: null, outcome: 'ok', agent: null },
+    {
+      action: 'node.create',
+      nodePath: '/site/pages/progetti/casa-sul-lago',
+      outcome: 'ok',
+      agent: null,
+    },
+    {
+      action: 'content.write',
+      nodePath: '/code/api/prodotti',
+      outcome: 'denied',
+      agent: 'content-agent',
+    },
+    { action: 'ai.active.set', nodePath: '/system/ai/roles', outcome: 'ok', agent: null },
+    { action: 'user.invite', nodePath: null, outcome: 'ok', agent: null },
+  ];
+  const auditLog = Array.from({ length: 120 }, (_, i) => {
+    const sample = samples[i % samples.length]!;
+    return {
+      id: i + 1,
+      at: hoursAgo((120 - i) * 3),
+      actorUid: i % 3 === 0 ? 1001 : 0,
+      actor: i % 3 === 0 ? 'anna' : 'root',
+      agent: sample.agent,
+      action: sample.action,
+      nodePath: sample.nodePath,
+      env: i % 4 === 0 ? 'staging' : 'prod',
+      outcome: sample.outcome,
+      details:
+        sample.outcome === 'denied'
+          ? {
+              permission: 'write',
+              code: 'invariant-I1',
+              message: 'Il codice non si modifica in produzione.',
+            }
+          : sample.action === 'content.write'
+            ? { version: i, nodeId: 'n-1' }
+            : null,
+    };
+  }).reverse();
+
+  function audit(req: MockRequest): MockResult {
+    const q = (key: string) => req.query.get(key) ?? '';
+    const cursor = Number(q('cursor')) || Infinity;
+    const to = q('to') ? new Date(q('to')).getTime() + 86_400_000 : Infinity;
+    const from = q('from') ? new Date(q('from')).getTime() : -Infinity;
+    const matches = auditLog.filter(
+      (e) =>
+        e.id < cursor &&
+        (!q('actor') || e.actor === q('actor')) &&
+        e.action.startsWith(q('action')) &&
+        (!q('path') || (e.nodePath ?? '').startsWith(q('path'))) &&
+        (!q('outcome') || e.outcome === q('outcome')) &&
+        new Date(e.at).getTime() >= from &&
+        new Date(e.at).getTime() < to,
+    );
+    const entries = matches.slice(0, 50);
+    return ok({ entries, nextCursor: matches.length > 50 ? entries.at(-1)!.id : null });
+  }
+
   function handle(req: MockRequest): MockResult {
     const route = `${req.method} ${req.path}`;
+    if (route === 'GET /audit') return audit(req);
     const result = pages(req, route) ?? site(req, route) ?? people(req, route) ?? ai(req, route);
     if (result) return result;
     switch (route) {

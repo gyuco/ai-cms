@@ -8,6 +8,7 @@ import {
   shortText,
   slugify,
   splitNodePath,
+  outcomeLabel,
   userStatusLabel,
 } from './format.ts';
 
@@ -76,5 +77,11 @@ describe('format', () => {
     expect(userStatusLabel('suspended')).toEqual({ label: 'Sospeso', tone: 'error' });
     expect(userStatusLabel('invited').label).toBe('Invitato');
     expect(userStatusLabel('boh')).toEqual({ label: 'boh', tone: 'off' });
+  });
+
+  it('outcomeLabel', () => {
+    expect(outcomeLabel('denied')).toEqual({ label: 'Negata', tone: 'error' });
+    expect(outcomeLabel('ok').label).toBe('Riuscita');
+    expect(outcomeLabel('strano')).toEqual({ label: 'strano', tone: 'off' });
   });
 });

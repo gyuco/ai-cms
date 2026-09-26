@@ -15,6 +15,15 @@ const dateTime = new Intl.DateTimeFormat('it-IT', {
   minute: '2-digit',
 });
 
+/** Compact form for tables: "26/09/26, 11:10". */
+export const SHORT_DATE_TIME = new Intl.DateTimeFormat('it-IT', {
+  day: '2-digit',
+  month: '2-digit',
+  year: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+});
+
 /** "26 set 2026, 11:10" in the browser's time zone; the input as is if it is not a date. */
 export function formatDateTime(value: string | Date, formatter = dateTime): string {
   const date = typeof value === 'string' ? new Date(value) : value;
@@ -87,4 +96,16 @@ const USER_STATUS: Record<string, { label: string; tone: Tone }> = {
 
 export function userStatusLabel(status: string): { label: string; tone: Tone } {
   return USER_STATUS[status] ?? { label: status, tone: 'off' };
+}
+
+const OUTCOME: Record<string, { label: string; tone: Tone }> = {
+  ok: { label: 'Riuscita', tone: 'ok' },
+  allowed: { label: 'Consentita', tone: 'ok' },
+  denied: { label: 'Negata', tone: 'error' },
+  error: { label: 'Errore', tone: 'error' },
+};
+
+/** Outcome of an audit entry in words. */
+export function outcomeLabel(outcome: string): { label: string; tone: Tone } {
+  return OUTCOME[outcome] ?? { label: outcome, tone: 'off' };
 }
