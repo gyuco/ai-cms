@@ -77,7 +77,8 @@ describe.skipIf(!testDatabaseUrl)('job queue', () => {
           return { ok: true };
         },
       },
-      pollIntervalMs: 10_000,
+      // Short poll: the NOTIFY can arrive before LISTEN is set up.
+      pollIntervalMs: 100,
       signal: controller.signal,
     });
     await enqueue(database.db, 'test.run', { n: 1 });

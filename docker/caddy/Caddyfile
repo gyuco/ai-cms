@@ -5,7 +5,7 @@
 
 # Internal endpoints (e.g. the AI gateway for the agent-runner) are reachable only on the
 # internal network, at http://cms-api:3100/_cms/internal/...; every public host answers 404.
-(internal) {
+(cms-internal) {
 	# An inline path matcher, so it sorts before the shorter `handle /_cms/*` below.
 	handle /_cms/internal* {
 		respond "Not found" 404
@@ -15,7 +15,7 @@
 # Every site host forwards /_cms/* to the CMS backend on the same origin (TECHNICAL §10.1).
 # X-CMS-Env is set here and never trusted from the client.
 (cms) {
-	import internal
+	import cms-internal
 	handle /_cms/* {
 		reverse_proxy cms-api:3100 {
 			header_up X-CMS-Env {args[0]}
@@ -24,7 +24,7 @@
 }
 
 # Site-internal endpoints (e.g. POST /__cms/revalidate) are for cms-api on the Docker network only.
-(internal) {
+(site-internal) {
 	@internal path /__cms /__cms/*
 	handle @internal {
 		respond "Not found" 404
@@ -32,7 +32,7 @@
 }
 
 http://www.localhost {
-	import internal
+	import site-internal
 	import cms prod
 	handle {
 		reverse_proxy site-prod:3000
@@ -40,7 +40,7 @@ http://www.localhost {
 }
 
 http://staging.localhost {
-	import internal
+	import site-internal
 	import cms staging
 	handle {
 		reverse_proxy site-staging:3000
@@ -62,11 +62,11 @@ http://*.localhost {
 }
 
 http://mail.localhost {
-	import internal
+	import cms-internal
 	reverse_proxy mailpit:8025
 }
 
 http://s3.localhost {
-	import internal
+	import cms-internal
 	reverse_proxy s3:8333
 }
