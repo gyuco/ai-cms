@@ -19,7 +19,11 @@ direttamente dalle pagine del sito.
 make up      # genera i segreti locali, costruisce le immagini e avvia tutto
 make ps      # stato dei servizi
 make help    # tutti i comandi
+make root-password   # password di root generata al primo avvio
 ```
+
+Al primo avvio `cms-api` applica le migrazioni e crea l'utente `root` con una password
+casuale, stampata una sola volta nei log e da cambiare al primo accesso.
 
 | Indirizzo | Servizio |
 |---|---|
