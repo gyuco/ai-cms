@@ -10,7 +10,7 @@ for name in \
   pg_prod_admin pg_prod_owner pg_prod_app \
   pg_staging_admin pg_staging_owner pg_staging_app \
   s3_access_key s3_secret_key \
-  session_secret ai_keys_master revalidate_token
+  session_secret ai_keys_master revalidate_token builder_token
 do
   file="$dir/$name"
   if [ ! -s "$file" ]; then

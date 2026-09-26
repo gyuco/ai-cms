@@ -1,15 +1,19 @@
 import { fileURLToPath } from 'node:url';
 import { deleteExpiredSessions } from '@ai-cms/auth';
-import { appDatabaseUrl, type Database } from '@ai-cms/db';
+import { appDatabaseUrl, readSecret, type Database } from '@ai-cms/db';
 import {
   closeChangeset,
+  createBuilderClient,
   createChangeset,
   createChangesetDatabase,
   dropChangesetDatabase,
   initSiteRepo,
   recordWork,
+  runChangesetChecks,
   siteRepoPaths,
+  type BuilderClient,
   type JobHandler,
+  type RunChecksOptions,
   type SiteRepoPaths,
 } from '@ai-cms/pipeline';
 
@@ -24,6 +28,12 @@ export interface HandlerOptions {
   stagingAdminUrl?: () => string;
   /** Database cloned for each changeset; `app_staging` by default. */
   stagingTemplate?: string;
+  /** Client of the builder service; by default BUILDER_URL and the `builder_token` secret. */
+  builder?: BuilderClient;
+  /** Connection URLs of a staging database by role (defaults from the worker secrets). */
+  stagingDatabaseUrl?: (role: 'owner' | 'app', database: string) => string;
+  /** Overrides for the check run (poll interval, published pages…). */
+  checks?: Partial<RunChecksOptions>;
 }
 
 const defaultTemplateDir =
@@ -39,6 +49,15 @@ export function createHandlers(
   const templateDir = options.templateDir ?? defaultTemplateDir;
   const stagingAdminUrl =
     options.stagingAdminUrl ?? (() => appDatabaseUrl('staging', 'owner', 'postgres'));
+  const stagingDatabaseUrl =
+    options.stagingDatabaseUrl ??
+    ((role: 'owner' | 'app', database: string) => appDatabaseUrl('staging', role, database));
+  const builder =
+    options.builder ??
+    createBuilderClient({
+      url: process.env.BUILDER_URL || 'http://builder:8090',
+      token: () => readSecret('builder_token'),
+    });
   return {
     'sessions.cleanup': async () => {
       await deleteExpiredSessions(db);
@@ -74,11 +93,33 @@ export function createHandlers(
     },
     // Payload: { changesetId }.
     'changeset.record': async (payload) => recordWork(db, changesetIdOf(payload), site),
+    // Payload: { changesetId }. Records the agent's work and runs the checks (TECHNICAL §8.2).
+    'changeset.check': async (payload) => {
+      const result = await runChangesetChecks(db, changesetIdOf(payload), {
+        site,
+        builder,
+        appDatabaseUrl: (database) => stagingDatabaseUrl('app', database),
+        ownerDatabaseUrl: (database) => stagingDatabaseUrl('owner', database),
+        stagingAdminUrl,
+        stagingTemplate: options.stagingTemplate,
+        ...options.checks,
+      });
+      return {
+        commit: result.commit,
+        status: result.status,
+        destructiveMigration: result.destructiveMigration,
+        checks: Object.fromEntries(result.checks.map((c) => [c.name, c.status])),
+      };
+    },
     // Payload: { changesetId }.
     'changeset.close': async (payload) => {
       const id = changesetIdOf(payload);
       const changeset = await closeChangeset(db, id, site);
       await dropChangesetDatabase(stagingAdminUrl(), id);
+      // The preview stops once its artifacts are gone; a builder outage must not block closing.
+      await builder.deleteArtifacts(id).catch((error: unknown) => {
+        console.warn(`worker: artifacts of ${id} not removed: ${(error as Error).message}`);
+      });
       return { status: changeset.status };
     },
   };

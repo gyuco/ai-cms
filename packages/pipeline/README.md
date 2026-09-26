@@ -29,3 +29,16 @@ Il modello del sito può dipendere da pacchetti del monorepo con `workspace:*`. 
 del sito queste dipendenze non sono risolvibili da sole: il commit iniziale le lascia come sono
 e la loro risoluzione è compito del builder (E11.2), che monta il monorepo durante install e
 build.
+
+## Controlli (E11.2)
+
+- `runChangesetChecks` (job `changeset.check` del worker) esegue i controlli di TECHNICAL §8.2
+  e ne salva i risultati in `check_runs`. `permissions` e `migration` girano nel worker; gli
+  altri nel builder (`apps/builder`), chiamato con `createBuilderClient`.
+- `@ai-cms/pipeline/builder` contiene il vocabolario condiviso con builder e anteprime
+  (nomi e stati dei controlli, richieste e risposte dell'API, `preview.json`), senza accesso
+  al database.
+- `findDestructiveStatements` riconosce l'SQL distruttivo (DROP, TRUNCATE, RENAME,
+  ALTER … TYPE, NOT NULL senza default); `applySiteMigrations` applica le migrazioni del sito
+  e le registra in `_cms.migrations`. La release (E12.2) deve usare la stessa funzione, così
+  `app_staging` e `app_prod` restano tracciati allo stesso modo.

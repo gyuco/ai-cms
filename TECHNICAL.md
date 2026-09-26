@@ -98,7 +98,7 @@
 | `cms-api` | API, chat, login, widget, motore permessi, agente contenuti, **gateway AI**, server MCP degli strumenti | control, prod (solo contenuti), staging | Unico servizio che decifra le chiavi API dei provider. Non ha credenziali di scrittura sul codice di prod. |
 | `worker` | Esegue i job della coda `jobs`: controlli, build, release, sincronizzazioni | control, prod, staging | Unico servizio con i ruoli DB di migrazione in prod. |
 | `agent-runner` | Esegue l'agente sviluppatore in sandbox, con il motore nativo o con una CLI in abbonamento | control (solo gateway AI e server MCP), egress | **Nessun** accesso alle reti prod e **nessuna chiave API**. Utente non root, filesystem limitato al workspace e al proprio profilo CLI. |
-| `builder` | Build di artefatti e test in un container usa e getta | staging | Nessuna credenziale di prod. |
+| `builder` | Controlli e build dei changeset (API HTTP interna su `:8090`, chiamata dal worker) | staging | Esegue il codice del sito: nessun segreto della piattaforma, `workspaces` in sola lettura, internet solo tramite `egress-proxy`. Ogni run lavora su una copia privata del monorepo. |
 | `git` | Repository bare del sito + hook | control | Hook `pre-receive` che verifica i permessi sui percorsi (difesa in profondità). |
 | `postgres-core` | DB della piattaforma | control | Ruoli distinti per cms-api, worker e audit. |
 | `postgres-prod` | Dati applicativi di produzione | prod | Raggiungibile solo da `site-prod`, `cms-api` (ruolo limitato) e `worker`. |
@@ -117,7 +117,8 @@
 |---|---|
 | `pg-core`, `pg-prod`, `pg-staging` | Dati PostgreSQL |
 | `git-repos` | Repository bare `site.git` |
-| `workspaces` | Worktree git dei changeset (montato solo in `agent-runner` e `builder`) |
+| `workspaces` | Worktree git dei changeset (scritto da `worker` e `agent-runner`, in sola lettura nel `builder`) |
+| `artifacts` | Artefatti dei changeset: `artifacts/<changeset_id>/<commit>/` e `preview.json` (scritto dal `builder`, in sola lettura in `previews`) |
 | `releases` | Artefatti di build: `releases/<release_id>/`, più i puntatori `blue` e `green` |
 | `backups` | Dump pre-migrazione (FR-56) |
 | `s3-data` | Asset |
@@ -800,6 +801,30 @@ Eseguiti dal `worker` nel container `builder`, sul commit di testa del changeset
 | 10 | `a11y` | axe-core sulle pagine toccate (NFR-07). |
 | 11 | `ai-review` | Un secondo modello esamina il diff e segnala problemi (FR-43). È solo consultivo, non blocca. |
 
+Esecuzione (MVP 1, job `changeset.check`):
+
+- Il worker registra il lavoro (`recordWork`), porta il changeset in `checking`, crea un
+  `check_run` per controllo e ne aggiorna stato e output (al massimo 64 KB) man mano.
+  Alla fine il changeset va in `ready` se ogni controllo è `passed` o `skipped`, altrimenti in
+  `checks_failed`.
+- `permissions` e `migration` girano nel worker: non eseguono codice del sito e usano
+  credenziali che il builder non deve avere. Le migrazioni sono i file `.sql` di
+  `db/migrations`, applicati in ordine, ciascuno in una transazione, e registrati in
+  `_cms.migrations` nel DB del changeset (le migrazioni già presenti nel commit di base sono
+  considerate applicate). Se una migrazione già applicata cambia, il DB del changeset viene
+  ricreato da `app_staging`. Una migrazione distruttiva non fa fallire il controllo ma imposta
+  `destructive_migration`.
+- Gli altri controlli girano nel `builder`, su una copia privata del monorepo in cui
+  `templates/site` è sostituito dal commit del changeset (`git archive`). `deps` è
+  `pnpm install --frozen-lockfile --offline` sul lockfile della piattaforma: una dipendenza
+  nuova fa fallire il controllo e richiede l'approvazione di un amministratore. `lint` usa una
+  configurazione del builder (il sito non può cambiarla né disattivarla con commenti).
+  `unit` è `skipped` se il sito non ha test. `build` salva l'artefatto in
+  `artifacts/<changeset_id>/<commit>/`.
+- `e2e` nell'MVP è uno smoke test HTTP (le pagine pubblicate rispondono 200, una pagina
+  inesistente 404), senza Playwright. `a11y` è `skipped`: axe-core richiede un browser; le
+  regole WCAG verificabili sull'HTML sono già nel controllo `html`. `ai-review` non c'è.
+
 Se un controllo fallisce, il suo output viene passato all'agente sviluppatore, che può
 riprovare fino a `maxAutoFixAttempts` volte (default 3) (FR-42).
 
@@ -1019,15 +1044,22 @@ sono **una sola libreria** usata in tre punti:
 - Gestiti con i Docker secrets (`/run/secrets/*`), mai nelle immagini.
 - Ogni servizio riceve solo i segreti di cui ha bisogno:
 
-| Segreto | cms-api | worker | agent-runner | site-prod | site-staging |
-|---|---|---|---|---|---|
-| `ai_keys_master` (cifra le chiavi API in `/system/secrets/ai`) | ✓ | | | | |
-| `pg_core_*` | ✓ | ✓ | | | |
-| `pg_prod_migrator` | | ✓ | | | |
-| `pg_prod_app` | | | | ✓ | |
-| `pg_staging_*` | ✓ | ✓ | | | ✓ |
-| `s3_access_key`, `s3_secret_key` | ✓ | ✓ | | ✓ | |
-| `revalidate_token` | ✓ | ✓ | | ✓ | ✓ |
+| Segreto | cms-api | worker | agent-runner | builder | site-prod | site-staging |
+|---|---|---|---|---|---|---|
+| `ai_keys_master` (cifra le chiavi API in `/system/secrets/ai`) | ✓ | | | | | |
+| `pg_core_*` | ✓ | ✓ | | | | |
+| `pg_prod_migrator` | | ✓ | | | | |
+| `pg_prod_app` | | | | | ✓ | |
+| `pg_staging_*` | ✓ | ✓ | | | | ✓ |
+| `s3_access_key`, `s3_secret_key` | ✓ | ✓ | | | ✓ | |
+| `revalidate_token` | ✓ | ✓ | | | ✓ | ✓ |
+| `builder_token` (API interna del builder) | | ✓ | | ✓ | | |
+
+- `builder` e `previews` eseguono codice del sito scritto dall'AI: non ricevono segreti della
+  piattaforma. Il builder riceve solo il proprio `builder_token`; per ogni run il worker gli
+  passa l'URL del DB del changeset con il ruolo `site_app`, che il builder scrive anche in
+  `preview.json` per `previews`. Le credenziali `app_owner` restano nel worker, che applica
+  le migrazioni.
 
 - I segreti applicativi del sito (es. chiave di un servizio esterno) sono nodi in
   `/system/secrets`, cifrati nel DB, iniettati a runtime nel sito tramite `@site/config`.
