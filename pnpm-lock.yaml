@@ -93,6 +93,15 @@ importers:
 
   apps/egress-proxy: {}
 
+  apps/previews:
+    dependencies:
+      '@ai-cms/pipeline':
+        specifier: workspace:*
+        version: link:../../packages/pipeline
+      tsx:
+        specifier: ^4.23.15
+        version: 4.23.15
+
   apps/worker:
     dependencies:
       '@ai-cms/auth':

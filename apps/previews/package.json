@@ -1,0 +1,15 @@
+{
+  "name": "@ai-cms/previews",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "start": "tsx src/main.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ai-cms/pipeline": "workspace:*",
+    "tsx": "^4.23.15"
+  }
+}

@@ -836,6 +836,12 @@ riprovare fino a `maxAutoFixAttempts` volte (default 3) (FR-42).
 - `previews` avvia `next start` sull'artefatto del changeset, collegato al suo DB, e Caddy
   lo espone su `cs-<id>.localhost`.
 - Alla chiusura del changeset, DB e anteprima vengono eliminati.
+- Dopo ogni `build` riuscita il builder scrive `artifacts/<changeset_id>/preview.json`
+  (commit, percorso del server standalone, `DATABASE_URL` del DB del changeset con il ruolo
+  `site_app`). `previews` avvia il processo alla prima richiesta, su una porta dinamica e su una
+  copia privata dell'artefatto, mostra "Anteprima in avvio…" finché non risponde, lo riavvia
+  quando `preview.json` indica un commit nuovo e lo spegne dopo 15 minuti senza richieste o
+  quando gli artefatti spariscono (alla chiusura il worker chiede al builder di eliminarli).
 
 ### 8.4 Release (FR-50 … FR-59)
 
