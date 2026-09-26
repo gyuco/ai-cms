@@ -1,6 +1,7 @@
 import { SESSION_COOKIE, normalizePublicPath, pageNodeFromPath } from '@ai-cms/site-kit/data';
 import { NextResponse, type NextRequest } from 'next/server';
 import { isPublishedPage } from './lib/page-index.ts';
+import { PATH_HEADER } from './lib/request.ts';
 
 /** Paths that are not content pages: framework assets, metadata files, internal endpoints. */
 const NOT_A_PAGE =
@@ -28,16 +29,24 @@ async function pageStatus(request: NextRequest): Promise<'ok' | 'missing' | 'una
 
 export async function proxy(request: NextRequest) {
   const status = await pageStatus(request);
-  if (status === 'missing') {
-    return NextResponse.rewrite(new URL('/_not-found', request.url), { status: 404 });
-  }
+  // Never trust the header from the client: it is ours only when the proxy sets it.
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.delete(PATH_HEADER);
   if (status === 'unavailable') {
     return NextResponse.rewrite(new URL('/__cms/unavailable', request.url), {
       status: 503,
       headers: { 'retry-after': '30' },
+      request: { headers: requestHeaders },
     });
   }
-  return NextResponse.next();
+  requestHeaders.set(PATH_HEADER, normalizePublicPath(request.nextUrl.pathname));
+  if (status === 'missing') {
+    return NextResponse.rewrite(new URL('/_not-found', request.url), {
+      status: 404,
+      request: { headers: requestHeaders },
+    });
+  }
+  return NextResponse.next({ request: { headers: requestHeaders } });
 }
 
 export const config = {

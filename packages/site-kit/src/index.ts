@@ -24,3 +24,13 @@ export {
   type PublishedEntry,
 } from './content.ts';
 export { fetchDraft, type DraftRequest, type DraftResult } from './preview.ts';
+export {
+  absoluteUrl,
+  canonicalUrl,
+  isIndexable,
+  isNoindex,
+  pageLang,
+  pageMetadata,
+  pageTitle,
+  type PageMetadataInput,
+} from './metadata.ts';

@@ -1,4 +1,4 @@
-import { PageView, siteUrl } from '@ai-cms/site-kit';
+import { PageView, pageMetadata, siteEnv, siteUrl } from '@ai-cms/site-kit';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { loadLayouts, loadPage, loadSettings } from '../../lib/cms.ts';
@@ -15,11 +15,14 @@ async function publicPath({ params }: Props): Promise<string> {
 export async function generateMetadata(props: Props): Promise<Metadata> {
   const page = await loadPage(await publicPath(props));
   if (!page) return {};
-  const settings = await loadSettings();
-  const title = page.body.meta.title
-    ? settings.titleTemplate.replaceAll('%s', page.body.meta.title)
-    : settings.name;
-  return { title: { absolute: title } };
+  return pageMetadata({
+    page: page.body,
+    settings: await loadSettings(),
+    publicPath: page.publicPath,
+    siteUrl: siteUrl(),
+    // Staging and unpublished drafts never end up in search engines.
+    noindex: siteEnv() === 'staging' || page.draft,
+  });
 }
 
 /** Catch-all route: every static page comes from the published content (TECHNICAL §4.1). */
