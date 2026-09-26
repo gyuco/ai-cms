@@ -186,6 +186,9 @@ importers:
 
   packages/pipeline:
     dependencies:
+      '@ai-cms/audit':
+        specifier: workspace:*
+        version: link:../audit
       '@ai-cms/db':
         specifier: workspace:*
         version: link:../db

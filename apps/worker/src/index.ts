@@ -1,6 +1,6 @@
 import { coreDatabaseUrl, createDatabase } from '@ai-cms/db';
 import { enqueue, runWorker } from '@ai-cms/pipeline';
-import { createHandlers, recurringJobs } from './handlers.ts';
+import { createHandlers, recurringJobs, startupJobs } from './handlers.ts';
 
 const { db, sql, close } = createDatabase(coreDatabaseUrl('worker'));
 const controller = new AbortController();
@@ -11,6 +11,8 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
     controller.abort();
   });
 }
+
+for (const type of startupJobs) await enqueue(db, type, {}, { dedupeKey: `startup:${type}` });
 
 const timers = recurringJobs.map(({ type, everyMs }) => {
   const schedule = () => void enqueue(db, type, {}, { dedupeKey: `recurring:${type}` });

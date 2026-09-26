@@ -148,6 +148,7 @@ services:
       ]
     volumes:
       - git-repos:/data/git
+      - workspaces:/data/workspaces
       - releases:/data/releases
       - backups:/data/backups
     depends_on:

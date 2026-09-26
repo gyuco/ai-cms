@@ -27,3 +27,19 @@ export function coreDatabaseUrl(role: CoreRole): string {
   const password = encodeURIComponent(readSecret(secret));
   return `postgres://${user}:${password}@${host}:5432/cms_core`;
 }
+
+export type AppEnv = 'prod' | 'staging';
+export type AppRole = 'owner' | 'app';
+
+const appLoginUsers: Record<AppRole, string> = { owner: 'app_owner', app: 'site_app' };
+
+/**
+ * Connection URL for an application database server (postgres-prod or postgres-staging),
+ * built from PROD_DB_HOST / STAGING_DB_HOST and the `pg_<env>_<role>` secret. `database`
+ * defaults to `app_<env>`.
+ */
+export function appDatabaseUrl(env: AppEnv, role: AppRole, database = `app_${env}`): string {
+  const host = process.env[`${env.toUpperCase()}_DB_HOST`] ?? 'localhost';
+  const password = encodeURIComponent(readSecret(`pg_${env}_${role}`));
+  return `postgres://${appLoginUsers[role]}:${password}@${host}:5432/${database}`;
+}
