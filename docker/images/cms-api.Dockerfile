@@ -11,10 +11,12 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN pnpm turbo run build --filter=@ai-cms/cms-api
 
 FROM node:22-alpine
-ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3100 HOSTNAME=0.0.0.0
+ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3100 HOSTNAME=0.0.0.0 \
+  MIGRATIONS_DIR=/app/migrations
 WORKDIR /app
 COPY --from=build --chown=node:node /repo/apps/cms-api/.next/standalone ./
 COPY --from=build --chown=node:node /repo/apps/cms-api/.next/static ./apps/cms-api/.next/static
+COPY --from=build --chown=node:node /repo/packages/db/migrations ./migrations
 USER node
 EXPOSE 3100
 CMD ["node", "apps/cms-api/server.js"]

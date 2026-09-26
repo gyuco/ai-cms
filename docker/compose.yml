@@ -25,6 +25,7 @@ services:
     secrets: [pg_core_admin, pg_core_owner, pg_core_api, pg_core_worker, pg_core_site_ro]
     volumes:
       - pg-core:/var/lib/postgresql/data
+      - ../packages/db/sql/roles.sql:/docker-entrypoint-initdb.d/05-roles.sql:ro
       - ./postgres/init-core.sh:/docker-entrypoint-initdb.d/10-init.sh:ro
     # prod and staging: the site runtimes read published content (role site_content_ro).
     networks: [control, prod, staging]

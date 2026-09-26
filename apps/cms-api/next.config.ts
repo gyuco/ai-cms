@@ -6,7 +6,7 @@ const config: NextConfig = {
   basePath: '/_cms',
   output: 'standalone',
   outputFileTracingRoot: path.join(import.meta.dirname, '../..'),
-  transpilePackages: ['@ai-cms/*'],
+  transpilePackages: ['@ai-cms/db'],
 };
 
 export default config;
