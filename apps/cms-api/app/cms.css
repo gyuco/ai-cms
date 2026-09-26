@@ -116,3 +116,12 @@ button[disabled] {
   color: var(--error-text);
   font-size: 0.95rem;
 }
+
+p.hint.below {
+  margin: 16px 0 0;
+  text-align: center;
+}
+
+a {
+  color: var(--accent);
+}

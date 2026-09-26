@@ -12,6 +12,9 @@ export default async function LoginPage({
       <h1>Accedi</h1>
       <p className="hint">Dopo l&apos;accesso tornerai alla pagina del sito da cui sei partito.</p>
       <LoginForm returnTo={safeReturnTo(returnTo)} />
+      <p className="hint below">
+        <a href="/_cms/reset">Password dimenticata?</a>
+      </p>
     </main>
   );
 }

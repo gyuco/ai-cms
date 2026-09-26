@@ -45,3 +45,25 @@ export const sessions = pgTable(
   },
   (t) => [index('sessions_uid_idx').on(t.uid), index('sessions_expires_at_idx').on(t.expiresAt)],
 );
+
+export const authTokenPurposes = ['invite', 'reset', 'sso'] as const;
+export type AuthTokenPurpose = (typeof authTokenPurposes)[number];
+
+/** Single-use tokens for invites, password resets and prod/staging sign-on. Stored hashed. */
+export const authTokens = pgTable(
+  'auth_tokens',
+  {
+    id: text('id').primaryKey(),
+    uid: integer('uid')
+      .notNull()
+      .references(() => users.uid, { onDelete: 'cascade' }),
+    purpose: text('purpose', { enum: authTokenPurposes }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    usedAt: timestamp('used_at', { withTimezone: true }),
+  },
+  (t) => [
+    check('auth_tokens_purpose_check', sql`${t.purpose} IN ('invite', 'reset', 'sso')`),
+    index('auth_tokens_uid_idx').on(t.uid),
+  ],
+);
