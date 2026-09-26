@@ -65,3 +65,4 @@ export {
   type RateLimitInfo,
   type RunClaudeCodeOptions,
 } from './claude-code.ts';
+export { claudeCodeConfigDir, hasClaudeCodeLogin } from './cli-auth.ts';
