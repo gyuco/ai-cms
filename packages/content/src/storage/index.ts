@@ -19,3 +19,4 @@ export {
   type AssetStorageConfig,
   type ObjectStream,
 } from './s3.ts';
+export { syncProdToStaging, type SyncResult } from './sync.ts';

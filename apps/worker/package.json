@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@ai-cms/auth": "workspace:*",
+    "@ai-cms/content": "workspace:*",
     "@ai-cms/db": "workspace:*",
     "@ai-cms/pipeline": "workspace:*",
     "tsx": "^4.23.15"

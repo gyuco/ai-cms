@@ -49,7 +49,8 @@ export function runGit(args: string[], options: GitOptions = {}): Promise<string
       args,
       {
         cwd: options.cwd,
-        env,
+        // Next.js types ProcessEnv with a required NODE_ENV that git does not need.
+        env: env as unknown as NodeJS.ProcessEnv,
         timeout: options.timeoutMs ?? 60_000,
         maxBuffer: 32 * 1024 * 1024,
         encoding: 'utf8',

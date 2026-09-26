@@ -16,8 +16,9 @@
     "@ai-cms/auth": "workspace:*",
     "@ai-cms/authz": "workspace:*",
     "@ai-cms/db": "workspace:*",
-    "@ai-cms/widget": "workspace:*",
     "@ai-cms/mcp-tools": "workspace:*",
+    "@ai-cms/pipeline": "workspace:*",
+    "@ai-cms/widget": "workspace:*",
     "next": "^16.3.6",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"

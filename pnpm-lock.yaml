@@ -56,6 +56,9 @@ importers:
       '@ai-cms/mcp-tools':
         specifier: workspace:*
         version: link:../../packages/mcp-tools
+      '@ai-cms/pipeline':
+        specifier: workspace:*
+        version: link:../../packages/pipeline
       '@ai-cms/widget':
         specifier: workspace:*
         version: link:../../packages/widget
@@ -86,6 +89,9 @@ importers:
       '@ai-cms/auth':
         specifier: workspace:*
         version: link:../../packages/auth
+      '@ai-cms/content':
+        specifier: workspace:*
+        version: link:../../packages/content
       '@ai-cms/db':
         specifier: workspace:*
         version: link:../../packages/db

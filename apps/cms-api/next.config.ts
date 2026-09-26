@@ -14,6 +14,7 @@ const config: NextConfig = {
     '@ai-cms/authz',
     '@ai-cms/db',
     '@ai-cms/mcp-tools',
+    '@ai-cms/pipeline',
   ],
   serverExternalPackages: ['@node-rs/argon2'],
 };

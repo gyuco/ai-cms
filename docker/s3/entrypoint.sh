@@ -17,5 +17,5 @@ cat > /tmp/s3.json <<JSON
   ]
 }
 JSON
-exec weed server -dir=/data -ip.bind=0.0.0.0 -master.volumeSizeLimitMB=1024 \
+exec weed server -dir=/data -ip.bind=0.0.0.0 -volume.max=0 -master.volumeSizeLimitMB=256 \
   -s3 -s3.port=8333 -s3.config=/tmp/s3.json

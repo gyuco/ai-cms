@@ -12,6 +12,7 @@ import {
   type JobHandler,
   type SiteRepoPaths,
 } from '@ai-cms/pipeline';
+import { stagingSyncHandler } from './staging-sync.ts';
 
 export interface HandlerOptions {
   site?: SiteRepoPaths;
@@ -44,6 +45,7 @@ export function createHandlers(
       await deleteExpiredSessions(db);
       return { ok: true };
     },
+    'staging.sync': stagingSyncHandler(db),
     'site.init': async () => initSiteRepo({ gitRoot: site.gitRoot, templateDir }),
     // Payload: { title, description?, authorUid, conversationId? }.
     'changeset.create': async (payload) => {
