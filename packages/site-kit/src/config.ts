@@ -30,3 +30,6 @@ export const DEFAULT_SETTINGS: SiteSettings = {
   lang: 'it',
   titleTemplate: '%s · Nuovo sito',
 };
+
+/** Request header set by the site proxy with the public path of the page being rendered. */
+export const PATH_HEADER = 'x-cms-path';

@@ -1,7 +1,7 @@
 import { PageView, pageMetadata, siteEnv, siteUrl } from '@ai-cms/site-kit';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { loadLayouts, loadPage, loadSettings } from '../../lib/cms.ts';
+import { loadLayouts, loadPage, loadSettings } from '@ai-cms/site-kit/next';
 
 interface Props {
   params: Promise<{ slug?: string[] }>;

@@ -1,7 +1,12 @@
-import { ALL_PATHS, isAuthorized, parseRevalidateBody, revalidateToken } from '@ai-cms/site-kit';
+import {
+  ALL_PATHS,
+  invalidatePageIndex,
+  isAuthorized,
+  parseRevalidateBody,
+  revalidateToken,
+} from '@ai-cms/site-kit/data';
 import { revalidatePath, revalidateTag } from 'next/cache';
-import { CONTENT_TAG, PAGES_TAG, pathTag } from '../../../lib/cms.ts';
-import { invalidatePageIndex } from '../../../lib/page-index.ts';
+import { CONTENT_TAG, PAGES_TAG, pathTag } from '@ai-cms/site-kit/next';
 
 function json(body: unknown, status = 200): Response {
   return Response.json(body, { status, headers: { 'cache-control': 'no-store' } });

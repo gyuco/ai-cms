@@ -1,4 +1,6 @@
-import { listPublishedPages, publicPathFromNode, siteEnv } from '@ai-cms/site-kit/data';
+import { siteEnv } from './config.ts';
+import { listPublishedPages } from './content.ts';
+import { publicPathFromNode } from './paths.ts';
 
 /**
  * Public paths of the published pages, kept in process memory for the proxy. Next.js 16

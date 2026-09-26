@@ -1,9 +1,8 @@
-import { DEFAULT_SETTINGS, NONCE_HEADER, pageLang } from '@ai-cms/site-kit';
+import { DEFAULT_SETTINGS, NONCE_HEADER, PATH_HEADER, pageLang } from '@ai-cms/site-kit';
 import { headers } from 'next/headers';
 import type { ReactNode } from 'react';
 import '@ai-cms/site-kit/base.css';
-import { loadPage, loadSettings } from '../lib/cms.ts';
-import { PATH_HEADER } from '../lib/request.ts';
+import { loadPage, loadSettings } from '@ai-cms/site-kit/next';
 
 /**
  * Loads the CMS widget only for signed-in users (TECHNICAL §10.1). `cms_ui` is a plain hint

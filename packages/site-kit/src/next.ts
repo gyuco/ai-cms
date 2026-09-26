@@ -8,27 +8,25 @@ import {
   type ParseResult,
   type SiteSettings,
 } from '@ai-cms/content';
+import { DEFAULT_SETTINGS, SESSION_COOKIE, siteEnv } from './config.ts';
+import { listPublishedPages, readPublished } from './content.ts';
 import {
-  DEFAULT_SETTINGS,
   FOOTER_NODE,
   HEADER_NODE,
-  SESSION_COOKIE,
   SETTINGS_NODE,
-  fetchDraft,
-  listPublishedPages,
   normalizePublicPath,
   pageNodeFromPath,
   publicPathFromNode,
-  readPublished,
-  siteEnv,
-} from '@ai-cms/site-kit';
+} from './paths.ts';
+import { fetchDraft } from './preview.ts';
 import { unstable_cache } from 'next/cache';
 import { cookies } from 'next/headers';
 import { cache } from 'react';
 
 /**
- * Content access for the site. Published content is kept in the Next.js data cache and
- * invalidated by `POST /__cms/revalidate`; drafts for signed-in users never touch it.
+ * Content access for the Next.js site (`@ai-cms/site-kit/next`). Published content is kept in
+ * the Next.js data cache and invalidated by `POST /__cms/revalidate`; drafts for signed-in
+ * users never touch it.
  */
 
 /** Every cached content entry carries this tag: `'*'` in a revalidation clears them all. */

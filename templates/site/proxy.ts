@@ -1,16 +1,16 @@
 import {
   NONCE_HEADER,
+  PATH_HEADER,
   SESSION_COOKIE,
   contentSecurityPolicy,
   fetchDraft,
   generateNonce,
+  isPublishedPage,
   normalizePublicPath,
   pageNodeFromPath,
   siteEnv,
 } from '@ai-cms/site-kit/data';
 import { NextResponse, type NextRequest } from 'next/server';
-import { isPublishedPage } from './lib/page-index.ts';
-import { PATH_HEADER } from './lib/request.ts';
 
 /** Paths that are not content pages: framework assets, metadata files, internal endpoints. */
 const NOT_A_PAGE =

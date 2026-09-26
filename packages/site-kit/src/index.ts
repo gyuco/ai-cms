@@ -11,6 +11,7 @@ export * from './paths.ts';
 export {
   cmsApiUrl,
   DEFAULT_SETTINGS,
+  PATH_HEADER,
   SESSION_COOKIE,
   siteEnv,
   siteUrl,
