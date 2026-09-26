@@ -8,13 +8,13 @@
 Alla fine dell'MVP 1, in locale con `docker compose up`, si può:
 
 1. partire da una **pagina bianca** e costruire un sito **solo dal widget in pagina**;
-2. gestire utenti, gruppi e permessi con il **modello Linux** completo;
+2. gestire gli utenti (in fase 1 **tutti gli utenti sono amministratori**: il modello di permessi Linux arriva in fase 2);
 3. modificare i contenuti in **produzione** con l'agente contenuti;
 4. sviluppare pagine dinamiche e collezioni in **staging** con l'agente sviluppatore;
 5. portarle in produzione con **un clic** e fare **rollback**;
 6. usare un **abbonamento** (Claude Code) oppure una **chiave API** (Anthropic o compatibile OpenAI).
 
-Criteri di accettazione: tutti quelli di PRD §9 (1–12).
+Criteri di accettazione: quelli di PRD §9, **tranne 7 e 8** (sticky bit e "Perché?"), che passano alla fase 2.
 
 ## Cosa resta fuori dall'MVP 1
 
@@ -23,7 +23,7 @@ Rinviato all'MVP 2 per mantenere l'MVP 1 semplice:
 | Area | Rinviato |
 |---|---|
 | Autenticazione | TOTP, token API, account di servizio |
-| Permessi | "Chi può?", "Cosa può?", simulazione, scadenza di permessi e appartenenze |
+| Permessi | **Tutto il modello Linux**: gruppi, mode, ACL, capability, attributi, ereditarietà, "Perché?", "Chi può?". In fase 1 tutti gli utenti sono amministratori. Dettaglio in fondo: *Fase 2 — Permessi*. |
 | Contenuti | Pubblicazione programmata, link di anteprima condivisibili, multilingua, interfaccia del cestino |
 | AI | Adattatori nativi OpenAI e Google, Codex CLI e Gemini CLI, riserve, limiti di spesa, cruscotto consumi, revisione AI |
 | Release | Zero downtime (blue/green), più changeset per release, separazione dei compiti |
@@ -43,7 +43,7 @@ Rinviato all'MVP 2 per mantenere l'MVP 1 semplice:
 
 ```
 Fase A — Fondamenta     E0 → E1 → E2 → E3
-Fase B — Permessi       E4 → E5
+Fase B — Contenuti      E4 → E5
 Fase C — Sito e widget  E6 → E7.1–E7.3, E7.6–E7.9, E7.12
 Fase D — AI             E8 → E9 → E7.4, E7.5, E7.10    ← primo sito costruibile via chat
 Fase E — Staging        E10 → E11
@@ -55,8 +55,8 @@ Milestone intermedie:
 | Milestone | Fine della fase | Risultato visibile |
 |---|---|---|
 | **A** | Fase A | `docker compose up`, pagina bianca, login funzionante |
-| **B** | Fase B | Permessi completi e testati, contenuti gestibili da API |
-| **C** | Fase C | Widget su ogni pagina, contenuti, utenti e permessi gestibili dalle schede |
+| **B** | Fase B | Vincoli di sistema attivi, contenuti gestibili da API |
+| **C** | Fase C | Widget su ogni pagina, contenuti e utenti gestibili dalle schede |
 | **D** | Fase D | Sito costruito da zero parlando in chat, in produzione |
 | **E** | Fase E | Pagina dinamica sviluppata in staging, controlli verdi |
 | **F** | Fase F | Approva e pubblica, rollback, suite di accettazione verde |
@@ -130,12 +130,13 @@ Milestone intermedie:
 - [ ] `packages/db`: client, configurazione drizzle-kit, runner delle migrazioni all'avvio di `cms-api`
 
 ### E2.2 Schema identità — **S** · dipende da E2.1
-- [ ] `groups`, `users`, `group_members`, `capability_grants`, `sessions`
+- [ ] `users`, `sessions`
+- [ ] Gruppi e capability: fase 2
 
-### E2.3 Schema albero e permessi — **M** · dipende da E2.1
-- [ ] `nodes` con `ltree`, indice GiST, `UNIQUE (parent_id, name)`
-- [ ] `acl_entries`
-- [ ] Vincoli e check su `kind`, `storage`, `env`, `attrs`
+### E2.3 Schema albero — **M** · dipende da E2.1
+- [ ] `nodes` con `ltree`, indice GiST, `UNIQUE (parent_id, name)`, `created_by`, `version`, `deleted_at`
+- [ ] Vincoli e check su `kind`, `storage`, `env`
+- [ ] Colonne dei permessi (`owner_uid`, `gid`, `mode`, `attrs`) e `acl_entries`: fase 2
 
 ### E2.4 Schema contenuti — **S** · dipende da E2.3
 - [ ] `content_versions`, `publications`
@@ -158,8 +159,7 @@ Milestone intermedie:
 
 ### E2.8 Seed iniziale — **M** · dipende da E2.2–E2.7
 - [ ] Utenti `root` (uid 0) e `system`
-- [ ] Gruppi predefiniti (PRD §5.7.8) e relative capability
-- [ ] Albero base (`/site/{pages,layouts,components,menus,assets}`, `/data/collections`, `/code/{api,lib,migrations}`, `/releases`, `/system/...`) con i permessi di partenza
+- [ ] Albero base (`/site/{pages,layouts,components,menus,assets}`, `/data/collections`, `/code/{api,lib,migrations}`, `/releases`, `/system/...`)
 - [ ] Home `/site/pages/index` **vuota** e impostazioni del sito (nome "Nuovo sito", lingua `it`)
 - [ ] Password di root casuale, stampata una sola volta nei log
 - [ ] Idempotente: rieseguirlo non duplica nulla
@@ -195,57 +195,44 @@ Milestone intermedie:
 
 ---
 
-## E4 — Motore dei permessi
+## E4 — Autorizzazione (fase 1: tutti admin)
 
-### E4.1 Codifica dei permessi — **S** · dipende da E0.1
-- [ ] Bitmask degli 8 permessi `r l x w c d p m` e degli attributi
-- [ ] Parser e formatter simbolici (`u=rlxwcd g=rlx o=rlx`, `g+p`, `o-w`)
-- [ ] Compatibilità ottale classica (`755` → permessi estesi)
+In fase 1 **ogni utente autenticato e attivo è amministratore**. Restano però attivi i
+**vincoli di sistema** (es. il codice non si modifica in produzione) e i **profili degli
+agenti**, perché proteggono gli ambienti e non dipendono dai ruoli degli utenti.
 
-### E4.2 Funzione `check` — **L** · dipende da E4.1
-- [ ] Passo 1: vincoli di sistema I1–I7
-- [ ] Passo 2: intersezione con profilo agente, maschera del token, scope della conversazione
-- [ ] Passo 3: root
-- [ ] Passo 4: attraversamento (`x` su tutti gli antenati)
-- [ ] Passo 5: regole di negazione
-- [ ] Passo 6: scelta della classe (owner → utente nominato → gruppi → other), maschera
-- [ ] Attributi: sticky, immutable, append-only
-- [ ] ACL limitate per ambiente
+Tutto il codice passa comunque da un unico punto (`authz.authorize`): in fase 2 si
+sostituisce la politica "tutti admin" con il modello Linux completo, senza toccare i
+chiamanti.
 
-### E4.3 Spiegazione delle decisioni — **S** · dipende da E4.2
-- [ ] `Decision.steps` passo per passo
-- [ ] Formattazione leggibile in italiano per la chat e il widget ("Perché?", FR-88)
+### E4.1 Interfaccia di autorizzazione — **S** · dipende da E0.1
+- [ ] Tipi `Principal`, `Action`, `Decision` (con motivazione leggibile)
+- [ ] `authorize(principal, action, node, env)` e `require(...)` che lancia un errore tipizzato
+- [ ] Politica intercambiabile (`AuthzPolicy`)
 
-### E4.4 Capability — **S** · dipende da E4.1
-- [ ] `requireCap(principal, cap)`
-- [ ] Caricamento delle capability da utente e gruppi
+### E4.2 Vincoli di sistema e profili agente — **M** · dipende da E4.1
+- [ ] Vincoli I1 (codice e schemi in sola lettura in produzione), I4 (nessun agente sui segreti), I5 (agente sviluppatore solo in staging), I6 (agente contenuti mai sul codice), I7 (audit in sola lettura)
+- [ ] Profili agente come maschera sulle azioni, per ambiente e percorso
+- [ ] Scope della conversazione (FR-86)
 
-### E4.5 Ereditarietà alla creazione — **M** · dipende da E4.2
-- [ ] Proprietario, gruppo (con setgid), mode di default per tipo di nodo, umask
-- [ ] Copia delle ACL di default; propagazione di setgid alle sottocartelle
+### E4.3 Politica "tutti admin" — **S** · dipende da E4.2
+- [ ] Utente autenticato e attivo → consentito, dopo i vincoli e i profili
+- [ ] Utente sospeso o non autenticato → negato
 
-### E4.6 Adattatore DB e cache — **M** · dipende da E4.2, E2.3
-- [ ] Caricamento di nodo, antenati e ACL in una sola query
-- [ ] Memorizzazione per richiesta
-- [ ] Cache LRU con invalidazione tramite `LISTEN/NOTIFY`
+### E4.4 Test — **S** · dipende da E4.3
+- [ ] Ogni vincolo di sistema vale anche per root
+- [ ] Agente ⊆ utente; agente sviluppatore bloccato in produzione
+- [ ] Copertura ≥ 95% su `packages/authz`
 
-### E4.7 Test del motore — **L** · dipende da E4.2–E4.5
-- [ ] Test tabellari sulla semantica POSIX (owner con meno permessi di other, maschera, utente nominato, negazione)
-- [ ] Property test con fast-check: root soggetto ai vincoli, `x` mancante nega sempre, deny vince sempre, agente ⊆ utente
-- [ ] Test degli attributi e dell'ereditarietà
-
-**Fatto quando:** copertura ≥ 95% su `packages/authz`.
-
-### E4.8 Punto unico di accesso al DB — **S** · dipende da E0.1
+### E4.5 Punto unico di accesso al DB — **S** · dipende da E0.1
 - [ ] Regola ESLint: `packages/db` importabile solo da `tree`, `content`, `pipeline`, `auth`, `audit`
 
 ---
 
 ## E5 — Albero e contenuti
 
-### E5.1 Servizio albero — **L** · dipende da E4.6, E2.7
+### E5.1 Servizio albero — **L** · dipende da E4.3, E2.7
 - [ ] Creare, leggere, elencare, rinominare, spostare, eliminare (soft delete) nodi
-- [ ] `chmod`, `chown` (con `CAP_CHOWN`), `chgrp`, `setfacl`, `getfacl`, attributi (con `CAP_ATTR`)
 - [ ] Concorrenza ottimistica con `version`
 - [ ] Ogni metodo chiama `authz.require` e scrive nell'audit
 
@@ -255,7 +242,7 @@ Milestone intermedie:
 
 ### E5.3 Versioni e pubblicazione — **M** · dipende da E5.1, E5.2, E2.4
 - [ ] Salvataggio come nuova versione
-- [ ] Pubblica e ritira (permesso `p`), ripristino di una versione precedente
+- [ ] Pubblica e ritira, ripristino di una versione precedente
 - [ ] Confronto tra due versioni
 
 ### E5.4 Sanitizzazione HTML — **S** · dipende da E5.2
@@ -271,7 +258,7 @@ Milestone intermedie:
 
 ### E5.7 Piani transazionali — **M** · dipende da E5.1, E5.3
 - [ ] Un piano = lista di operazioni su più nodi
-- [ ] Validazione completa (permessi e regole HTML) prima dell'esecuzione
+- [ ] Validazione completa (vincoli di sistema e regole HTML) prima dell'esecuzione
 - [ ] Esecuzione in una sola transazione (FR-63)
 
 ---
@@ -322,18 +309,18 @@ Milestone intermedie:
 - [ ] `packages/widget`: Preact + Vite, custom element `<cms-widget>` con Shadow DOM
 - [ ] Bundle unico servito da `cms-api` su `/_cms/widget.js`
 
-### E7.2 API di contesto — **S** · dipende da E3.3, E4.6
-- [ ] `GET /_cms/api/context?path=…`: nodo, permessi effettivi, capability, ambiente, token CSRF
+### E7.2 API di contesto — **S** · dipende da E3.3, E4.3
+- [ ] `GET /_cms/api/context?path=…`: nodo, utente, ambiente, token CSRF
 
 ### E7.3 Shell — **M** · dipende da E7.1, E7.2
 - [ ] Pannello flottante: apri/chiudi, sposta, ridimensiona, stato salvato in `localStorage`
 - [ ] Scorciatoia `Ctrl/Cmd + .`, gestione del focus, WCAG 2.1 AA
 - [ ] Indicatore di ambiente e passaggio produzione ↔ staging (E3.5)
-- [ ] Schede visibili in base ai permessi
+- [ ] Tutte le schede visibili a ogni utente (in fase 2: in base ai permessi)
 
 ### E7.4 Scheda Chat — **L** · dipende da E7.3, E9.3
 - [ ] Streaming SSE da `POST /_cms/api/chat`
-- [ ] Messaggi, stato dell'agente, azioni in corso, errori e permessi negati spiegati
+- [ ] Messaggi, stato dell'agente, azioni in corso, errori e vincoli violati spiegati
 - [ ] Piano proposto con **Conferma** / **Annulla**
 - [ ] Storico delle conversazioni della pagina
 
@@ -348,16 +335,14 @@ Milestone intermedie:
 - [ ] Metadati (title, description, social) modificabili
 - [ ] Stato, versioni, ripristino, pubblica/ritira
 - [ ] Esito delle regole HTML
-- [ ] Proprietario, gruppo, permessi e ACL del nodo; pulsante "Perché?"
 
 ### E7.8 Scheda Sito — **M** · dipende da E7.3, E5.1
 - [ ] Albero delle pagine con navigazione e creazione
 - [ ] Menu, layout, impostazioni del sito
 
-### E7.9 Scheda Utenti e permessi — **M** · dipende da E7.3, E3.4, E5.1
-- [ ] Utenti: elenco, invito, sospensione, gruppi
-- [ ] Gruppi: creazione, membri
-- [ ] Vista stile `ls -l` / `getfacl` e modifica di mode e ACL, con anteprima dell'effetto
+### E7.9 Scheda Utenti — **S** · dipende da E7.3, E3.4
+- [ ] Utenti: elenco, invito, sospensione, riattivazione
+- [ ] Gruppi e permessi: fase 2
 
 ### E7.10 Scheda AI — **S** · dipende da E7.3, E8.6
 - [ ] Inserimento della chiave API (mai più visualizzabile)
@@ -400,8 +385,8 @@ Milestone intermedie:
 - [ ] Una connessione attiva usata da tutti i ruoli (TECHNICAL §7.8)
 - [ ] "Prova connessione": credenziali, modello, supporto agli strumenti (FR-123, FR-124)
 
-### E8.7 Server MCP degli strumenti — **M** · dipende da E8.1, E4.6
-- [ ] `packages/mcp-tools`: registro degli strumenti (Zod + permesso richiesto)
+### E8.7 Server MCP degli strumenti — **M** · dipende da E8.1, E4.3
+- [ ] `packages/mcp-tools`: registro degli strumenti (Zod + azione richiesta, per l'autorizzazione)
 - [ ] Server MCP su HTTP, solo rete `control`
 - [ ] Token di sessione con il `Principal`; audit con provider e modello
 
@@ -422,12 +407,11 @@ Milestone intermedie:
 ### E9.1 Strumenti dei contenuti — **L** · dipende da E8.7, E5.1–E5.7, E6.6
 - [ ] `list_nodes`, `read_node`, `create_page`, `update_blocks`, `move_node`, `delete_node`
 - [ ] `upload_asset`, `publish`, `update_meta`, `update_layout`, `update_menu`
-- [ ] `explain_permission`, `chmod`, `set_acl`
 - [ ] Ogni strumento di scrittura restituisce le violazioni HTML
 
 ### E9.2 Prompt e contesto — **M** · dipende da E9.1
-- [ ] Prompt di sistema: ruolo, regole HTML, comportamento sui permessi negati, conferme
-- [ ] Contesto: pagina corrente, outline, elemento selezionato, ambiente, permessi effettivi
+- [ ] Prompt di sistema: ruolo, regole HTML, comportamento sui vincoli violati, conferme
+- [ ] Contesto: pagina corrente, outline, elemento selezionato, ambiente
 
 ### E9.3 Piani e conferme — **M** · dipende da E9.1, E5.7
 - [ ] Accumulo delle operazioni di un turno in un piano
@@ -458,9 +442,10 @@ Milestone intermedie:
 - [ ] Corrispondenza percorso nell'albero ↔ file
 - [ ] Sincronizzazione dei nodi con `storage='git'`
 
-### E10.3 Hook `pre-receive` — **M** · dipende da E10.2, E4.6
-- [ ] Per ogni file del push: risoluzione del nodo e verifica di `w`/`c`/`d`
+### E10.3 Hook `pre-receive`: protezione dei rami — **S** · dipende da E10.1
+- [ ] Solo il `worker` può aggiornare `main` e `staging`; gli agenti possono solo i rami `cs/*`
 - [ ] Rifiuto con messaggio chiaro
+- [ ] Controllo dei permessi per file: fase 2
 
 ### E10.4 Ciclo di vita del changeset — **M** · dipende da E10.1, E2.5
 - [ ] Creazione del ramo `cs/<id>` e del worktree
@@ -472,7 +457,7 @@ Milestone intermedie:
 ### E10.6 Agente sviluppatore con Claude Code — **L** · dipende da E8.8, E10.4
 - [ ] `settings.json` generato nel workspace con regole allow/deny
 - [ ] Hook `PreToolUse` che chiama `authz` per file e comandi
-- [ ] Allowlist dei comandi; `pnpm add` solo con `CAP_DEPENDENCY_ADD`
+- [ ] Allowlist dei comandi; `pnpm add` solo dopo conferma dell'utente in chat
 - [ ] Strumenti CMS e di sviluppo via MCP: `run_checks`, `get_check_results`, `query_staging_db`, `open_preview`
 
 ### E10.7 Agente sviluppatore con motore nativo — **M** · dipende da E8.5, E10.4
@@ -487,7 +472,7 @@ Milestone intermedie:
 
 ### E10.10 Sito di staging e sincronizzazione — **M** · dipende da E10.1, E5.5
 - [ ] `site-staging` sul ramo `staging`
-- [ ] Copia di contenuti pubblicati e asset da produzione a staging (`CAP_STAGING_SYNC`)
+- [ ] Copia di contenuti pubblicati e asset da produzione a staging
 
 ---
 
@@ -512,8 +497,8 @@ Milestone intermedie:
 
 ## E12 — Release e rollback
 
-### E12.1 Approva e pubblica — **S** · dipende da E11.2, E4.4
-- [ ] Endpoint con controllo di `CAP_RELEASE_APPROVE` e `CAP_RELEASE_DEPLOY`
+### E12.1 Approva e pubblica — **S** · dipende da E11.2
+- [ ] Endpoint per qualsiasi utente autenticato (le capability arrivano in fase 2)
 - [ ] Rifiuto con commento → torna all'agente come richiesta di modifiche
 
 ### E12.2 Job di release — **L** · dipende da E12.1
@@ -537,17 +522,16 @@ Milestone intermedie:
 ## E13 — Accettazione e rifinitura
 
 ### E13.1 Suite di accettazione — **L** · dipende da tutto
-- [ ] Un test Playwright per ciascun criterio di PRD §9 (1–12)
+- [ ] Un test Playwright per ciascun criterio di PRD §9 (1–12, tranne 7 e 8)
 - [ ] Eseguibile con `make acceptance` sull'ambiente Docker
 
 ### E13.2 Test di sicurezza degli agenti — **M** · dipende da E9, E10
-- [ ] Richieste fuori dai permessi, bloccate dal motore e non dal prompt
+- [ ] Richieste che violano i vincoli di sistema, bloccate da `authz` e non dal prompt
 - [ ] Push git non autorizzato rifiutato
 - [ ] Nessun agente raggiunge chiavi, segreti o la rete di produzione
 
 ### E13.3 Documentazione d'uso — **S** · dipende da tutto
 - [ ] Guida al primo avvio: login, collegamento dell'AI, primo sito
-- [ ] Guida ai permessi con esempi
 
 ---
 
@@ -559,7 +543,7 @@ Milestone intermedie:
 | E1 Ambiente Docker | 5 | L |
 | E2 Database | 8 | L |
 | E3 Autenticazione | 5 | L |
-| E4 Motore dei permessi | 8 | XL |
+| E4 Autorizzazione (tutti admin) | 5 | M |
 | E5 Albero e contenuti | 7 | XL |
 | E6 Sito e regole HTML | 8 | XL |
 | E7 Widget | 12 | XL |
@@ -569,4 +553,55 @@ Milestone intermedie:
 | E11 Controlli automatici | 4 | L |
 | E12 Release e rollback | 4 | L |
 | E13 Accettazione | 3 | L |
-| **Totale** | **93** | |
+| **Totale** | **90** | |
+
+---
+
+## Fase 2 — Permessi completi (dopo l'MVP 1)
+
+Il modello Linux descritto in PRD §5.7 e TECHNICAL §6, che sostituisce la politica "tutti admin".
+
+### P2.1 Schema — **M**
+- [ ] `groups`, `group_members` (con scadenza), `capability_grants`
+- [ ] Colonne `owner_uid`, `gid`, `mode`, `acl_mask`, `attrs` su `nodes`; tabella `acl_entries`
+- [ ] Migrazione dei nodi esistenti: proprietario = `created_by`, gruppo e mode di default
+
+### P2.2 Codifica e parser — **S**
+- [ ] Bitmask `r l x w c d p m` e attributi; parser simbolico e ottale
+
+### P2.3 Politica Linux in `check` — **L**
+- [ ] Attraversamento, negazioni, scelta della classe, maschera, sticky, immutable, append-only, ACL per ambiente
+
+### P2.4 "Perché?" — **S**
+- [ ] Spiegazione passo per passo in italiano (FR-88)
+
+### P2.5 Capability — **S**
+- [ ] `requireCap` e applicazione a utenti, release, dipendenze, sync, AI, audit
+
+### P2.6 Ereditarietà — **M**
+- [ ] setgid, ACL di default, umask
+
+### P2.7 Adattatore DB e cache — **M**
+- [ ] Nodo + antenati + ACL in una query, cache con `LISTEN/NOTIFY`
+
+### P2.8 Test POSIX e property test — **L**
+
+### P2.9 Operazioni sull'albero — **M**
+- [ ] `chmod`, `chown`, `chgrp`, `setfacl`, `getfacl`, attributi
+
+### P2.10 Seed dei gruppi predefiniti — **S**
+- [ ] Gruppi di PRD §5.7.8 e permessi di partenza dell'albero
+
+### P2.11 Widget — **L**
+- [ ] Schede e azioni visibili in base ai permessi
+- [ ] Scheda Utenti e permessi: gruppi, vista `ls -l` / `getfacl`, modifica con anteprima
+- [ ] Scheda Pagina: proprietario, gruppo, ACL, "Perché?"
+
+### P2.12 Strumenti dell'agente — **S**
+- [ ] `explain_permission`, `chmod`, `set_acl`; permessi effettivi nel contesto
+
+### P2.13 Hook git per file — **M**
+- [ ] `pre-receive`: verifica di `w`/`c`/`d` per ogni file del push
+
+### P2.14 Accettazione — **S**
+- [ ] Criteri 7 e 8 di PRD §9

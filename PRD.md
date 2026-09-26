@@ -200,6 +200,11 @@ Ogni requisito ha un identificativo (`FR-xx`) e una priorità: **M** = must, **S
 Il modello è ispirato al filesystem Linux. Obiettivo: **ogni azione su ogni nodo è autorizzata
 da un permesso atomico**, e le regole si leggono come su un filesystem.
 
+> **Fase 1 (MVP 1):** tutti gli utenti autenticati sono **amministratori**. Restano attivi i
+> vincoli di sistema (es. codice non modificabile in produzione) e i limiti degli agenti AI
+> (5.7.9). Il modello descritto in questa sezione arriva in **fase 2**; il sistema è già
+> predisposto perché ogni azione passa da un unico punto di autorizzazione.
+
 #### 5.7.1 Utenti
 
 | ID | Requisito | Priorità |
@@ -535,12 +540,12 @@ L'agente le conosce, le applica da solo e corregge gli errori prima di proporre 
 1. Con `docker compose up` partono produzione e staging; il sito è una pagina bianca, valida come HTML.
     Root accede da `/_cms/login` e trova il widget su ogni pagina.
 2. Un redattore crea e pubblica una pagina statica in produzione **solo dal widget**, senza aprire alcuna area di amministrazione.
-3. Un redattore **non riesce** a modificare codice in produzione, e l'agente spiega perché.
+3. Nessun utente, neanche root, **riesce** a modificare codice in produzione, e l'agente spiega perché.
 4. Uno sviluppatore crea in staging una collezione e una pagina dinamica via chat; i controlli passano.
 5. Un revisore approva con un clic; la pagina dinamica compare in produzione con i suoi dati.
 6. Il rollback riporta la produzione alla release precedente.
-7. Un autore in una cartella con sticky bit non riesce a eliminare la pagina di un altro autore.
-8. Il comando "Perché?" spiega correttamente un permesso concesso e uno negato.
+7. *(fase 2)* Un autore in una cartella con sticky bit non riesce a eliminare la pagina di un altro autore.
+8. *(fase 2)* Il comando "Perché?" spiega correttamente un permesso concesso e uno negato.
 9. Ogni azione dei punti precedenti è presente nel registro di audit.
 10. L'agente sviluppatore completa il punto 4 sia con un **abbonamento** (es. Claude Code)
     sia con una **chiave API** di un provider diverso, senza modifiche al resto del sistema.

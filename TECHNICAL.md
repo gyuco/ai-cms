@@ -364,6 +364,11 @@ CREATE TABLE audit_log (
 
 ## 6. Motore dei permessi (`packages/authz`)
 
+> **Fase 1 (MVP 1):** `authz` applica solo i vincoli di sistema (§6.3), i profili agente e lo
+> scope; poi consente tutto agli utenti autenticati e attivi (politica "tutti admin"). Le
+> tabelle e l'algoritmo di questa sezione arrivano in fase 2 come nuova politica, senza
+> cambiare i chiamanti. Vedi `MVP1.md`, sezione *Fase 2 — Permessi*.
+
 ### 6.1 Interfaccia
 
 ```ts
