@@ -75,3 +75,9 @@ export {
   type UpdateConnectionInput,
 } from './connections.ts';
 export { testConnection, type ConnectionTestResult } from './test-connection.ts';
+export {
+  getConversation,
+  type Conversation,
+  type ConversationMessage,
+  type ConversationMessageRole,
+} from './conversations.ts';
