@@ -98,7 +98,15 @@ services:
       SMTP_HOST: mailpit
       SMTP_PORT: '1025'
     secrets:
-      [pg_core_owner, pg_core_api, session_secret, ai_keys_master, revalidate_token, s3_access_key, s3_secret_key]
+      [
+        pg_core_owner,
+        pg_core_api,
+        session_secret,
+        ai_keys_master,
+        revalidate_token,
+        s3_access_key,
+        s3_secret_key,
+      ]
     depends_on:
       postgres-core: { condition: service_healthy }
     healthcheck:
@@ -120,7 +128,14 @@ services:
       STAGING_DB_HOST: postgres-staging
       S3_ENDPOINT: http://s3:8333
     secrets:
-      [pg_core_worker, pg_prod_owner, pg_staging_owner, revalidate_token, s3_access_key, s3_secret_key]
+      [
+        pg_core_worker,
+        pg_prod_owner,
+        pg_staging_owner,
+        revalidate_token,
+        s3_access_key,
+        s3_secret_key,
+      ]
     volumes:
       - git-repos:/data/git
       - releases:/data/releases
