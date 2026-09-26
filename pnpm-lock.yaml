@@ -123,6 +123,22 @@ importers:
         specifier: ^0.31.11
         version: 0.31.11
 
+  packages/eslint-plugin-site:
+    dependencies:
+      minimatch:
+        specifier: ^10.2.6
+        version: 10.2.6
+    devDependencies:
+      '@types/estree':
+        specifier: ^1.0.9
+        version: 1.0.9
+      '@typescript-eslint/parser':
+        specifier: ^8.70.1
+        version: 8.70.1(eslint@10.11.0)(typescript@6.0.3)
+      eslint:
+        specifier: ^10.0.0
+        version: 10.11.0
+
   packages/html-rules:
     dependencies:
       html-validate:
