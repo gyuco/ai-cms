@@ -1,6 +1,6 @@
 COMPOSE := docker compose --project-directory docker -f docker/compose.yml
 
-.PHONY: help secrets up down reset logs ps seed root-password
+.PHONY: help secrets up down reset logs ps seed root-password reset-root-password
 
 help: ## Mostra i comandi disponibili
 	@grep -E '^[a-zA-Z_%-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-14s %s\n", $$1, $$2}'
@@ -32,4 +32,7 @@ shell-%: ## Apre una shell in un servizio (es. make shell-cms-api)
 	$(COMPOSE) exec $* sh
 
 root-password: ## Mostra la password di root generata al primo avvio
-	@$(COMPOSE) logs cms-api | grep 'root password' || echo "Non trovata: la password è stampata solo al primo avvio."
+	@$(COMPOSE) logs cms-api | grep 'root password' || echo "Non trovata: la password è stampata solo al primo avvio. Usa make reset-root-password."
+
+reset-root-password: ## Genera una nuova password temporanea per root
+	$(COMPOSE) exec cms-api node apps/cms-api/admin.mjs reset-root-password
