@@ -301,6 +301,9 @@ importers:
         specifier: ^3.4.9
         version: 3.4.9
     devDependencies:
+      '@ai-cms/authz':
+        specifier: workspace:*
+        version: link:../authz
       drizzle-kit:
         specifier: ^0.31.11
         version: 0.31.11
