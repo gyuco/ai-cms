@@ -41,7 +41,19 @@ export {
   type SharedElements,
   type SharedReadOptions,
 } from './shared.ts';
-export { getPageContext, pageStatus, type PageContext, type PageStatus } from './pages.ts';
+export {
+  createPage,
+  getPageContext,
+  getPageDetails,
+  pageStatus,
+  savePageMeta,
+  userNames,
+  type CreatePageInput,
+  type PageContext,
+  type PageDetails,
+  type PageStatus,
+  type PageVersionInfo,
+} from './pages.ts';
 export {
   PlanError,
   executePlan,

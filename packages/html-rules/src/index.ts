@@ -6,3 +6,4 @@ export {
   type Violation,
 } from './validate.ts';
 export { DESCRIPTION_MAX_LENGTH, DESCRIPTION_MIN_LENGTH, TITLE_MAX_LENGTH } from './rules.ts';
+export { checkRenderedPage, type RenderedPageCheck, type RenderedPageOptions } from './remote.ts';
