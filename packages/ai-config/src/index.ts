@@ -51,6 +51,15 @@ export {
 } from './gateway.ts';
 export { handleInternalChat, internalChatBody, type InternalChatBody } from './internal-chat.ts';
 export {
+  agentAuthorizeBody,
+  decideAgentToolUse,
+  handleAgentAuthorize,
+  handleAgentWhoami,
+  type AgentAuthorizeBody,
+  type AgentToolDecision,
+  type AgentWhoami,
+} from './agent-runner-api.ts';
+export {
   connectionSecretName,
   createConnection,
   deleteConnection,

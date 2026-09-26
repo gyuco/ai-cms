@@ -49,7 +49,8 @@ export function runGit(args: string[], options: GitOptions = {}): Promise<string
       args,
       {
         cwd: options.cwd,
-        env,
+        // Cast: Next.js (cms-api imports this package) augments ProcessEnv with NODE_ENV.
+        env: env as NodeJS.ProcessEnv,
         timeout: options.timeoutMs ?? 60_000,
         maxBuffer: 32 * 1024 * 1024,
         encoding: 'utf8',
