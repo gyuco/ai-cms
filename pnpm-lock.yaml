@@ -38,12 +38,18 @@ importers:
 
   apps/cms-api:
     dependencies:
+      '@ai-cms/ai-config':
+        specifier: workspace:*
+        version: link:../../packages/ai-config
       '@ai-cms/audit':
         specifier: workspace:*
         version: link:../../packages/audit
       '@ai-cms/auth':
         specifier: workspace:*
         version: link:../../packages/auth
+      '@ai-cms/authz':
+        specifier: workspace:*
+        version: link:../../packages/authz
       '@ai-cms/db':
         specifier: workspace:*
         version: link:../../packages/db
@@ -94,6 +100,27 @@ importers:
       openai:
         specifier: ^7.23.0
         version: 7.23.0(zod@4.6.5)
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
+
+  packages/ai-config:
+    dependencies:
+      '@ai-cms/ai':
+        specifier: workspace:*
+        version: link:../ai
+      '@ai-cms/audit':
+        specifier: workspace:*
+        version: link:../audit
+      '@ai-cms/authz':
+        specifier: workspace:*
+        version: link:../authz
+      '@ai-cms/db':
+        specifier: workspace:*
+        version: link:../db
+      drizzle-orm:
+        specifier: ^0.45.3
+        version: 0.45.3(postgres@3.4.9)
       zod:
         specifier: ^4.6.5
         version: 4.6.5

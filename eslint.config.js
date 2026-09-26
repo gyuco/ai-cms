@@ -31,6 +31,7 @@ export default tseslint.config(
       'packages/pipeline/**',
       'packages/auth/**',
       'packages/audit/**',
+      'packages/ai-config/**',
       'apps/cms-api/lib/**',
       'apps/cms-api/cli/**',
       'apps/worker/**',
