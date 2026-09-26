@@ -8,5 +8,9 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ai-cms/db": "workspace:*",
+    "drizzle-orm": "^0.45.3"
   }
 }

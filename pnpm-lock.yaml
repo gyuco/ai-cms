@@ -70,7 +70,14 @@ importers:
 
   packages/ai: {}
 
-  packages/audit: {}
+  packages/audit:
+    dependencies:
+      '@ai-cms/db':
+        specifier: workspace:*
+        version: link:../db
+      drizzle-orm:
+        specifier: ^0.45.3
+        version: 0.45.3(postgres@3.4.9)
 
   packages/auth: {}
 
