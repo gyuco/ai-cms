@@ -106,9 +106,9 @@ Milestone intermedie:
 ## E1 — Ambiente Docker locale
 
 ### E1.1 Servizi di base — **M** · dipende da E0.1
-- [ ] `docker/compose.yml` con `postgres-core`, `postgres-prod`, `postgres-staging`, `minio`, `mailpit`, `caddy`
+- [ ] `docker/compose.yml` con `postgres-core`, `postgres-prod`, `postgres-staging`, `s3` (SeaweedFS), `mailpit`, `caddy`
 - [ ] Reti `control`, `prod`, `staging`, `egress`
-- [ ] Volumi: `pg-core`, `pg-prod`, `pg-staging`, `git-repos`, `workspaces`, `releases`, `backups`, `minio-data`, `cli-auth`
+- [ ] Volumi: `pg-core`, `pg-prod`, `pg-staging`, `git-repos`, `workspaces`, `releases`, `backups`, `s3-data`, `cli-auth`
 - [ ] Healthcheck per ogni servizio
 - [ ] `.env.example`
 - [ ] Postgres: estensioni `ltree` e `citext`, database e ruoli separati per servizio
@@ -126,8 +126,8 @@ Milestone intermedie:
 - [ ] `www.localhost` → `site-prod`
 - [ ] `staging.localhost` → `site-staging`
 - [ ] `/_cms/*` su ogni host del sito → `cms-api`
-- [ ] `cs-<id>.localhost` → `previews` (route dinamiche via API admin di Caddy)
-- [ ] `mail.localhost`, `minio.localhost`
+- [ ] `cs-*.localhost` → `previews`, che instrada in base all'host (niente API admin di Caddy esposta)
+- [ ] `mail.localhost`, `s3.localhost`
 
 ### E1.4 Segreti e uscita di rete — **S** · dipende da E1.1
 - [ ] Docker secrets per servizio, secondo la tabella in TECHNICAL §13
@@ -265,7 +265,7 @@ chiamanti.
 - [ ] `sanitize-html` con allowlist; mai `<script>` né attributi `on*` (FR-112)
 
 ### E5.5 Asset — **M** · dipende da E5.1, E1.1
-- [ ] Upload su MinIO, un bucket per ambiente
+- [ ] Upload su S3 (SeaweedFS), un bucket per ambiente
 - [ ] Ridimensionamento delle immagini con `sharp`, formati moderni
 - [ ] Testo alternativo obbligatorio o marcatura come decorativa
 

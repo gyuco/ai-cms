@@ -1,0 +1,122 @@
+name: ai-cms
+
+x-postgres: &postgres
+  image: postgres:17-alpine
+  restart: unless-stopped
+  healthcheck:
+    test: ['CMD-SHELL', 'pg_isready -U postgres']
+    interval: 5s
+    timeout: 5s
+    retries: 20
+
+services:
+  postgres-core:
+    <<: *postgres
+    environment:
+      POSTGRES_PASSWORD_FILE: /run/secrets/pg_core_admin
+    secrets: [pg_core_admin, pg_core_owner, pg_core_api, pg_core_worker, pg_core_site_ro]
+    volumes:
+      - pg-core:/var/lib/postgresql/data
+      - ./postgres/init-core.sh:/docker-entrypoint-initdb.d/10-init.sh:ro
+    # prod and staging: the site runtimes read published content (role site_content_ro).
+    networks: [control, prod, staging]
+
+  postgres-prod:
+    <<: *postgres
+    environment:
+      POSTGRES_PASSWORD_FILE: /run/secrets/pg_prod_admin
+      APP_DB: app_prod
+      SECRET_PREFIX: pg_prod
+    secrets: [pg_prod_admin, pg_prod_owner, pg_prod_app]
+    volumes:
+      - pg-prod:/var/lib/postgresql/data
+      - ./postgres/init-app.sh:/docker-entrypoint-initdb.d/10-init.sh:ro
+    networks: [prod]
+
+  postgres-staging:
+    <<: *postgres
+    environment:
+      POSTGRES_PASSWORD_FILE: /run/secrets/pg_staging_admin
+      APP_DB: app_staging
+      SECRET_PREFIX: pg_staging
+    secrets: [pg_staging_admin, pg_staging_owner, pg_staging_app]
+    volumes:
+      - pg-staging:/var/lib/postgresql/data
+      - ./postgres/init-app.sh:/docker-entrypoint-initdb.d/10-init.sh:ro
+    networks: [staging]
+
+  s3:
+    image: chrislusf/seaweedfs:latest
+    restart: unless-stopped
+    entrypoint: ['/bin/sh', '/entrypoint-cms.sh']
+    secrets: [s3_access_key, s3_secret_key]
+    volumes:
+      - s3-data:/data
+      - ./s3/entrypoint.sh:/entrypoint-cms.sh:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -q -O /dev/null http://127.0.0.1:8333/healthz || exit 1']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    networks: [control, prod, staging]
+
+  mailpit:
+    image: axllent/mailpit:latest
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', '/mailpit', 'readyz']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks: [control]
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - '${HTTP_PORT:-80}:80'
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -q -O /dev/null http://127.0.0.1:2019/config/ || exit 1']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks: [control, prod, staging]
+
+networks:
+  control:
+  prod:
+  staging:
+  egress:
+
+volumes:
+  pg-core:
+  pg-prod:
+  pg-staging:
+  git-repos:
+  workspaces:
+  releases:
+  backups:
+  s3-data:
+  cli-auth:
+  caddy-data:
+
+secrets:
+  pg_core_admin: { file: ./secrets/pg_core_admin }
+  pg_core_owner: { file: ./secrets/pg_core_owner }
+  pg_core_api: { file: ./secrets/pg_core_api }
+  pg_core_worker: { file: ./secrets/pg_core_worker }
+  pg_core_site_ro: { file: ./secrets/pg_core_site_ro }
+  pg_prod_admin: { file: ./secrets/pg_prod_admin }
+  pg_prod_owner: { file: ./secrets/pg_prod_owner }
+  pg_prod_app: { file: ./secrets/pg_prod_app }
+  pg_staging_admin: { file: ./secrets/pg_staging_admin }
+  pg_staging_owner: { file: ./secrets/pg_staging_owner }
+  pg_staging_app: { file: ./secrets/pg_staging_app }
+  s3_access_key: { file: ./secrets/s3_access_key }
+  s3_secret_key: { file: ./secrets/s3_secret_key }
+  session_secret: { file: ./secrets/session_secret }
+  ai_keys_master: { file: ./secrets/ai_keys_master }
+  revalidate_token: { file: ./secrets/revalidate_token }

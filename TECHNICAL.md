@@ -46,7 +46,7 @@
 | Database | PostgreSQL 17 (con estensione `ltree`) | Albero dei nodi con query sugli antenati efficienti; `CREATE DATABASE … TEMPLATE` per clonare i DB di staging. |
 | ORM e migrazioni | Drizzle ORM + drizzle-kit | Schema tipizzato, migrazioni SQL leggibili e revisionabili. |
 | Code di lavoro | pg-boss (su PostgreSQL) | Nessun servizio in più da gestire. |
-| Storage asset | MinIO (compatibile S3) | Bucket separati per produzione e staging. |
+| Storage asset | SeaweedFS (API compatibile S3) | Bucket separati per produzione e staging. Licenza Apache 2.0; MinIO non distribuisce più immagini Docker per la versione community. |
 | Git server | Repository bare su volume + hook `pre-receive` | Semplice, locale, con controllo permessi anche lato git. |
 | Reverse proxy | Caddy | Host `*.localhost`, routing verso anteprime dinamiche. |
 | Email (locale) | Mailpit | Inviti e recupero password in sviluppo. |
@@ -67,7 +67,7 @@
                               │ */_cms/*           → cms-api (stessa origine)│
                               │ www.localhost      → site-prod (blue|green) │
                               │ staging.localhost  → site-staging           │
-                              │ cs-<id>.localhost  → previews:<porta>       │
+                              │ cs-<id>.localhost  → previews (per host)    │
                               └──────┬───────────────┬───────────────┬──────┘
                                      │               │               │
   ┌──────────────────────── net: control ────────────┼───────────────┼─────────────┐
@@ -84,8 +84,8 @@
   ┌────────────── net: prod ─────────────┐   ┌────────┴── net: staging ─────────────┐
   │ site-prod-blue / site-prod-green     │   │ site-staging, previews               │
   │ postgres-prod  (db: app_prod)        │   │ postgres-staging (app_staging,       │
-  │ minio (bucket: prod)                 │   │   app_cs_<id>…)                      │
-  └──────────────────────────────────────┘   │ minio (bucket: staging)              │
+  │ s3 (bucket: prod)                    │   │   app_cs_<id>…)                      │
+  └──────────────────────────────────────┘   │ s3 (bucket: staging)                 │
                                              └──────────────────────────────────────┘
   egress-proxy: unica uscita verso internet (endpoint dei provider AI configurati, registry npm su autorizzazione)
 ```
@@ -106,7 +106,7 @@
 | `site-prod-blue/green` | Runtime del sito pubblico | prod | Filesystem in sola lettura, utente non root, artefatto di release montato in sola lettura. |
 | `site-staging` | Runtime staging (ramo `staging`) | staging | |
 | `previews` | Anteprime dei changeset | staging | Un processo per changeset attivo, porte dinamiche. |
-| `minio` | Asset | prod, staging | Bucket e credenziali separati per ambiente. |
+| `s3` | Asset (SeaweedFS con API S3) | control, prod, staging | Bucket separati per ambiente. |
 | `egress-proxy` | Uscita verso internet con allowlist | egress | FR-111. |
 | `mailpit` | SMTP locale | control | |
 | `ollama` *(opzionale)* | Modelli locali | control | Attivabile con il profilo Compose `local-ai`. |
@@ -120,7 +120,7 @@
 | `workspaces` | Worktree git dei changeset (montato solo in `agent-runner` e `builder`) |
 | `releases` | Artefatti di build: `releases/<release_id>/`, più i puntatori `blue` e `green` |
 | `backups` | Dump pre-migrazione (FR-56) |
-| `minio-data` | Asset |
+| `s3-data` | Asset |
 | `cli-auth` | Profili di login delle CLI in abbonamento, una cartella per utente (`cli-auth/<uid>/<provider>`). Montato **solo** in `agent-runner`. |
 
 ---
@@ -1026,7 +1026,7 @@ sono **una sola libreria** usata in tre punti:
 | `pg_prod_migrator` | | ✓ | | | |
 | `pg_prod_app` | | | | ✓ | |
 | `pg_staging_*` | ✓ | ✓ | | | ✓ |
-| `minio_prod` | ✓ | ✓ | | ✓ | |
+| `s3_access_key`, `s3_secret_key` | ✓ | ✓ | | ✓ | |
 | `revalidate_token` | ✓ | ✓ | | ✓ | ✓ |
 
 - I segreti applicativi del sito (es. chiave di un servizio esterno) sono nodi in
@@ -1057,7 +1057,7 @@ docker compose exec -it agent-runner cms-connect claude-code --user root
 | http://staging.localhost | Sito di staging |
 | http://cs-&lt;id&gt;.localhost | Anteprima di un changeset |
 | http://mail.localhost | Mailpit |
-| http://minio.localhost | Console MinIO |
+| http://s3.localhost | API S3 (SeaweedFS) |
 
 ### 14.2 Primo avvio (seed)
 
@@ -1070,7 +1070,7 @@ docker compose exec -it agent-runner cms-connect claude-code --user root
 ### 14.3 Sviluppo della piattaforma
 
 - `pnpm dev` avvia cms-api, widget e worker in locale con hot reload, collegati ai servizi Docker
-  (Postgres, MinIO, git).
+  (Postgres, S3, git).
 - `pnpm test` esegue tutti i test; `pnpm test:authz` solo i test del motore permessi.
 
 ---

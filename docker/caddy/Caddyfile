@@ -1,0 +1,12 @@
+{
+	admin localhost:2019
+	auto_https off
+}
+
+http://mail.localhost {
+	reverse_proxy mailpit:8025
+}
+
+http://s3.localhost {
+	reverse_proxy s3:8333
+}
