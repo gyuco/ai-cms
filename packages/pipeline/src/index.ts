@@ -38,3 +38,9 @@ export {
   type SetStatusOptions,
 } from './changesets.ts';
 export { pathsOverlap, touchedTreePaths, treePathForFile } from './tree-paths.ts';
+export {
+  changesetDatabaseName,
+  createChangesetDatabase,
+  dropChangesetDatabase,
+  type CreateChangesetDatabaseOptions,
+} from './changeset-db.ts';
