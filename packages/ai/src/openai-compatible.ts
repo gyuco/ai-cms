@@ -129,6 +129,16 @@ export function mapFinishReason(
   }
 }
 
+/**
+ * Errors sent inside the response body have no HTTP status: OpenRouter puts it in the error
+ * `code`, so a rate limit stays retryable (FR-122) instead of looking like a client mistake.
+ */
+function statusFromCode(code: unknown): number | undefined {
+  if (typeof code !== 'number' && typeof code !== 'string') return undefined;
+  const status = Number(code);
+  return Number.isInteger(status) && status >= 100 && status < 600 ? status : undefined;
+}
+
 function errorEvent(err: unknown, signal?: AbortSignal): ChatEvent {
   if (err instanceof OpenAI.APIUserAbortError || signal?.aborted) {
     return { type: 'error', message: 'Richiesta interrotta', aborted: true };
@@ -137,7 +147,7 @@ function errorEvent(err: unknown, signal?: AbortSignal): ChatEvent {
     return { type: 'error', message: err.message, retryable: true };
   }
   if (err instanceof OpenAI.APIError) {
-    const status = typeof err.status === 'number' ? err.status : undefined;
+    const status = typeof err.status === 'number' ? err.status : statusFromCode(err.code);
     const retryable =
       status !== undefined && (status === 408 || status === 409 || status === 429 || status >= 500);
     return { type: 'error', message: err.message, ...(status ? { status } : {}), retryable };
