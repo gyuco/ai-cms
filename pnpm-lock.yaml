@@ -170,7 +170,14 @@ importers:
         specifier: ^4.23.15
         version: 4.23.15
 
-  packages/agents: {}
+  packages/agents:
+    dependencies:
+      '@ai-cms/authz':
+        specifier: workspace:*
+        version: link:../authz
+      '@ai-cms/content':
+        specifier: workspace:*
+        version: link:../content
 
   packages/ai:
     dependencies:

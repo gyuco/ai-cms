@@ -8,5 +8,9 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ai-cms/authz": "workspace:*",
+    "@ai-cms/content": "workspace:*"
   }
 }
