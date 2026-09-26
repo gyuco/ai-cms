@@ -8,6 +8,7 @@ import {
   shortText,
   slugify,
   splitNodePath,
+  userStatusLabel,
 } from './format.ts';
 
 describe('format', () => {
@@ -69,5 +70,11 @@ describe('format', () => {
     expect(parentFromUrl('/progetti/')).toBe('/site/pages/progetti');
     expect(parentFromUrl('progetti/2026')).toBe('/site/pages/progetti/2026');
     expect(parentFromUrl('/Progetti')).toBeNull();
+  });
+
+  it('userStatusLabel', () => {
+    expect(userStatusLabel('suspended')).toEqual({ label: 'Sospeso', tone: 'error' });
+    expect(userStatusLabel('invited').label).toBe('Invitato');
+    expect(userStatusLabel('boh')).toEqual({ label: 'boh', tone: 'off' });
   });
 });

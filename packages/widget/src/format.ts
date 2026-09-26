@@ -21,7 +21,7 @@ export function formatDateTime(value: string | Date, formatter = dateTime): stri
   return Number.isNaN(date.getTime()) ? String(value) : formatter.format(date);
 }
 
-export type Tone = 'ok' | 'draft' | 'off';
+export type Tone = 'ok' | 'draft' | 'off' | 'error';
 
 /** Publication state of a page in words (E7.7). */
 export function pageStateLabel(status: PageStatus): { label: string; tone: Tone } {
@@ -76,4 +76,15 @@ export function parentFromUrl(value: string): string | null {
   if (clean === '') return PAGES_ROOT;
   if (!clean.split('/').every((part) => /^[a-z0-9][a-z0-9_-]{0,62}$/.test(part))) return null;
   return `${PAGES_ROOT}/${clean}`;
+}
+
+const USER_STATUS: Record<string, { label: string; tone: Tone }> = {
+  active: { label: 'Attivo', tone: 'ok' },
+  invited: { label: 'Invitato', tone: 'draft' },
+  suspended: { label: 'Sospeso', tone: 'error' },
+  deleted: { label: 'Eliminato', tone: 'off' },
+};
+
+export function userStatusLabel(status: string): { label: string; tone: Tone } {
+  return USER_STATUS[status] ?? { label: status, tone: 'off' };
 }

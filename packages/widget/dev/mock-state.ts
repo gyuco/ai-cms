@@ -309,9 +309,69 @@ export function createMockState() {
     return null;
   }
 
+  const users = [
+    {
+      uid: 0,
+      username: 'root',
+      displayName: 'Mario Rossi',
+      email: 'root@example.test',
+      status: 'active',
+    },
+    {
+      uid: 1001,
+      username: 'anna',
+      displayName: 'Anna Bianchi',
+      email: 'anna@studio.test',
+      status: 'active',
+    },
+    {
+      uid: 1002,
+      username: 'luca',
+      displayName: null,
+      email: 'luca@studio.test',
+      status: 'invited',
+    },
+    {
+      uid: 1003,
+      username: 'giulia',
+      displayName: 'Giulia Verdi',
+      email: 'giulia@studio.test',
+      status: 'suspended',
+    },
+  ];
+
+  function people(req: MockRequest, route: string): MockResult | null {
+    if (route === 'GET /users') return ok({ users });
+    if (route === 'POST /users/invite') {
+      const { username, email, displayName } = req.body as Record<string, string>;
+      if (users.some((u) => u.username === username || u.email === email)) {
+        return fail(400, 'exists', 'Esiste già un utente con questo nome o questa email.');
+      }
+      users.push({
+        uid: 1000 + users.length + 1,
+        username: username!,
+        email: email!,
+        displayName: displayName || null,
+        status: 'invited',
+      });
+      return ok({ uid: 1000 + users.length }, 201);
+    }
+    const match = /^POST \/users\/(\d+)\/(suspend|reactivate)$/.exec(route);
+    if (!match) return null;
+    const user = users.find((u) => u.uid === Number(match[1]));
+    if (!user) return fail(404, 'not_found', 'Utente non trovato.');
+    if (match[2] === 'suspend') {
+      if (user.uid === 0) return fail(403, 'root', "L'utente root non si può sospendere.");
+      user.status = 'suspended';
+    } else {
+      user.status = 'active';
+    }
+    return ok({ status: user.status });
+  }
+
   function handle(req: MockRequest): MockResult {
     const route = `${req.method} ${req.path}`;
-    const result = pages(req, route) ?? site(req, route);
+    const result = pages(req, route) ?? site(req, route) ?? people(req, route);
     if (result) return result;
     switch (route) {
       case 'GET /context':

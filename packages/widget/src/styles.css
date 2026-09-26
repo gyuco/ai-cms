@@ -513,6 +513,7 @@ code {
 
 .field {
   display: grid;
+  align-content: start;
   gap: 3px;
   min-width: 0;
 }
@@ -846,6 +847,48 @@ button.tree-toggle:hover {
   padding: 4px 0;
   border-bottom: 1px solid var(--border);
   font-size: 13px;
+}
+
+/* Users tab */
+
+.user-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.user-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+
+.user-item:last-child {
+  border-bottom: 0;
+}
+
+.user-info {
+  display: grid;
+  flex: 1;
+  min-width: 160px;
+}
+
+.user-detail {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-lock {
+  width: 64px;
+  text-align: center;
 }
 
 /* Selection of page elements (E7.6) */
