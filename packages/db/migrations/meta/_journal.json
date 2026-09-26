@@ -36,6 +36,13 @@
       "when": 1790417305836,
       "tag": "0004_published_content_view",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790417342283,
+      "tag": "0005_dev",
+      "breakpoints": true
     }
   ]
 }
