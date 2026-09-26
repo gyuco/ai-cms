@@ -30,6 +30,22 @@ Rinviato all'MVP 2 per mantenere l'MVP 1 semplice:
 | Staging | Copia dei dati applicativi di produzione (nell'MVP 1 si copiano solo contenuti e asset) |
 | Audit | Job di verifica periodica della catena di hash, esportazione |
 
+## Issue su GitHub
+
+Ogni epic è una issue con le sue task collegate come sub-issue; i subtask sono le caselle
+dentro ogni task. Etichette: `epic` / `task`, `mvp1` / `fase-2`, `fase-A` … `fase-F`, `size:S|M|L`.
+
+| Epic | Issue | Epic | Issue |
+|---|---|---|---|
+| E0 Repository e strumenti | #1 | E8 Livello AI | #12 |
+| E1 Ambiente Docker | #5 | E9 Agente contenuti | #13 |
+| E2 Database | #6 | E10 Staging e agente sviluppatore | #14 |
+| E3 Autenticazione | #7 | E11 Controlli automatici | #15 |
+| E4 Autorizzazione | #8 | E12 Release e rollback | #16 |
+| E5 Albero e contenuti | #9 | E13 Accettazione | #17 |
+| E6 Sito e regole HTML | #10 | P2 Permessi completi (fase 2) | #18 |
+| E7 Widget | #11 | | |
+
 ## Convenzioni
 
 - **ID:** `E<epic>.<task>`, ad esempio `E4.2`. I subtask sono le caselle.
@@ -278,7 +294,7 @@ chiamanti.
 
 ### E6.3 Rotta catch-all e bozze — **M** · dipende da E6.2, E2.4
 - [ ] Lettura da `published_content` con ruolo in sola lettura
-- [ ] Next.js Draft Mode per gli utenti con `r` sulle bozze (FR-150)
+- [ ] Next.js Draft Mode per gli utenti autenticati: bozze visibili solo a loro (FR-150)
 - [ ] 404 conforme alle regole HTML
 
 ### E6.4 Head, sitemap e robots — **S** · dipende da E6.3, E5.6
