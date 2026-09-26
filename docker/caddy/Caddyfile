@@ -3,6 +3,44 @@
 	auto_https off
 }
 
+# Every site host forwards /_cms/* to the CMS backend on the same origin (TECHNICAL §10.1).
+# X-CMS-Env is set here and never trusted from the client.
+(cms) {
+	handle /_cms/* {
+		reverse_proxy cms-api:3100 {
+			header_up X-CMS-Env {args[0]}
+		}
+	}
+}
+
+http://www.localhost {
+	import cms prod
+	handle {
+		reverse_proxy site-prod:3000
+	}
+}
+
+http://staging.localhost {
+	import cms staging
+	handle {
+		reverse_proxy site-staging:3000
+	}
+}
+
+# Changeset previews (E10.9): the previews service routes by host name.
+http://*.localhost {
+	@preview header_regexp host Host ^cs-[a-z0-9-]+\.localhost$
+	handle @preview {
+		import cms staging
+		handle {
+			reverse_proxy previews:8080
+		}
+	}
+	handle {
+		respond "Not found" 404
+	}
+}
+
 http://mail.localhost {
 	reverse_proxy mailpit:8025
 }

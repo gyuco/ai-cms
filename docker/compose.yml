@@ -73,6 +73,7 @@ services:
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
+    depends_on: [cms-api, site-prod, site-staging]
     ports:
       - '${HTTP_PORT:-80}:80'
     volumes:
@@ -84,6 +85,103 @@ services:
       timeout: 5s
       retries: 20
     networks: [control, prod, staging]
+
+  cms-api:
+    image: ai-cms/cms-api
+    build:
+      context: ..
+      dockerfile: docker/images/cms-api.Dockerfile
+    restart: unless-stopped
+    environment:
+      CORE_DB_HOST: postgres-core
+      S3_ENDPOINT: http://s3:8333
+      SMTP_HOST: mailpit
+      SMTP_PORT: '1025'
+    secrets:
+      [pg_core_owner, pg_core_api, session_secret, ai_keys_master, revalidate_token, s3_access_key, s3_secret_key]
+    depends_on:
+      postgres-core: { condition: service_healthy }
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -q -O /dev/null http://127.0.0.1:3100/_cms/api/health || exit 1']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    networks: [control, prod, staging]
+
+  worker:
+    image: ai-cms/worker
+    build:
+      context: ..
+      dockerfile: docker/images/worker.Dockerfile
+    restart: unless-stopped
+    environment:
+      CORE_DB_HOST: postgres-core
+      PROD_DB_HOST: postgres-prod
+      STAGING_DB_HOST: postgres-staging
+      S3_ENDPOINT: http://s3:8333
+    secrets:
+      [pg_core_worker, pg_prod_owner, pg_staging_owner, revalidate_token, s3_access_key, s3_secret_key]
+    volumes:
+      - git-repos:/data/git
+      - releases:/data/releases
+      - backups:/data/backups
+    depends_on:
+      postgres-core: { condition: service_healthy }
+      postgres-prod: { condition: service_healthy }
+      postgres-staging: { condition: service_healthy }
+    networks: [control, prod, staging]
+
+  site-prod:
+    image: ai-cms/site-runtime
+    build:
+      context: ..
+      dockerfile: docker/images/site-runtime.Dockerfile
+    restart: unless-stopped
+    environment:
+      CMS_ENV: prod
+      CORE_DB_HOST: postgres-core
+      APP_DB_HOST: postgres-prod
+      S3_ENDPOINT: http://s3:8333
+    secrets: [pg_core_site_ro, pg_prod_app, revalidate_token]
+    healthcheck: &site-health
+      test: ['CMD-SHELL', 'wget -q -O /dev/null http://127.0.0.1:3000/ || exit 1']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    networks: [prod]
+
+  site-staging:
+    image: ai-cms/site-runtime
+    restart: unless-stopped
+    environment:
+      CMS_ENV: staging
+      CORE_DB_HOST: postgres-core
+      APP_DB_HOST: postgres-staging
+      S3_ENDPOINT: http://s3:8333
+    secrets: [pg_core_site_ro, pg_staging_app, revalidate_token]
+    healthcheck: *site-health
+    networks: [staging]
+
+  agent-runner:
+    image: ai-cms/agent-runner
+    build:
+      context: ..
+      dockerfile: docker/images/agent-runner.Dockerfile
+    restart: unless-stopped
+    volumes:
+      - workspaces:/workspaces
+      - cli-auth:/cli-auth
+    # No prod network and no API keys: see TECHNICAL §7.
+    networks: [control, egress]
+
+  builder:
+    image: ai-cms/builder
+    build:
+      context: ..
+      dockerfile: docker/images/builder.Dockerfile
+    # Started on demand by the worker (E11.2), not by `docker compose up`.
+    profiles: [tools]
+    networks: [staging]
 
 networks:
   control:
