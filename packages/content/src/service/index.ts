@@ -41,3 +41,16 @@ export {
   type SharedElements,
   type SharedReadOptions,
 } from './shared.ts';
+export {
+  PlanError,
+  executePlan,
+  planOperationSchema,
+  planSchema,
+  type ExecutePlanOptions,
+  type PagePreview,
+  type PlanIssue,
+  type PlanIssueKind,
+  type PlanOperation,
+  type PlanResult,
+  type RenderValidator,
+} from './plans.ts';
