@@ -11,6 +11,9 @@ export function parseAllowlist(value: string): string[] {
 
 export function isAllowed(host: string, allowlist: readonly string[]): boolean {
   const name = host.toLowerCase().replace(/\.$/, '');
+  // Only what a DNS host name can hold: `evil.example#.anthropic.com` ends with an allowed
+  // suffix but is not a name under it, whatever the caller parsed before.
+  if (!/^[a-z0-9.-]+$/.test(name)) return false;
   return allowlist.some((entry) =>
     entry.startsWith('.') ? name === entry.slice(1) || name.endsWith(entry) : name === entry,
   );
