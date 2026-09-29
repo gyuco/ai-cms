@@ -18,6 +18,7 @@ import {
   type SiteRepoPaths,
 } from '@ai-cms/pipeline';
 import { autofixHandler, queueAutofix, type AutofixOptions } from './autofix.ts';
+import { reviseHandler } from './revise.ts';
 import { stagingSyncHandler } from './staging-sync.ts';
 
 export interface HandlerOptions {
@@ -126,6 +127,8 @@ export function createHandlers(
     },
     // Payload: { changesetId }.
     'changeset.autofix': autofixHandler(db, options.autofix),
+    // Payload: { changesetId, reviewId }. A rejection comment goes back to the developer agent.
+    'changeset.revise': reviseHandler(db, options.autofix),
     'changeset.close': async (payload) => {
       const id = changesetIdOf(payload);
       const changeset = await closeChangeset(db, id, site);

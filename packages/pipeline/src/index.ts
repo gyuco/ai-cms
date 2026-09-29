@@ -125,3 +125,17 @@ export {
   type ChangesetChecksState,
   type FailedCheck,
 } from './autofix.ts';
+export {
+  approveChangeset,
+  buildChangeRequestPrompt,
+  RELEASE_JOB,
+  RELEASE_JOB_ATTEMPTS,
+  releaseDedupeKey,
+  rejectChangeset,
+  REVISE_JOB,
+  reviseDedupeKey,
+  type ApproveInput,
+  type ApproveResult,
+  type RejectInput,
+  type RejectResult,
+} from './review.ts';
