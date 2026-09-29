@@ -26,6 +26,9 @@ Per usare il proprio abbonamento Claude (Pro, Max, Team) con gli agenti, ognuno 
 **proprio** account con `make connect-claude-code user=<username>`: si apre il login ufficiale
 di Claude Code e le credenziali restano solo nel container `agent-runner`.
 
+La guida completa, dal primo accesso al primo sito pubblicato, è in
+[`docs/primo-avvio.md`](docs/primo-avvio.md).
+
 Al primo avvio `cms-api` applica le migrazioni e crea l'utente `root` con una password
 casuale, stampata una sola volta nei log e da cambiare al primo accesso.
 
