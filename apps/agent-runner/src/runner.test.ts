@@ -340,10 +340,14 @@ describe('runner with the native engine', () => {
     ]);
     const results = events.filter((e) => e.type === 'tool_result');
     expect(results.map((e) => e.type === 'tool_result' && e.isError)).toEqual([false, true, true]);
-    expect(authorized).toEqual([
-      { tool: 'write_file', path: 'lib/new.ts', exists: false },
-      { tool: 'write_file', path: 'data/x.ts', exists: false },
-    ]);
+    // Tool calls of one turn run concurrently: the authorization order is not fixed.
+    expect(authorized).toHaveLength(2);
+    expect(authorized).toEqual(
+      expect.arrayContaining([
+        { tool: 'write_file', path: 'lib/new.ts', exists: false },
+        { tool: 'write_file', path: 'data/x.ts', exists: false },
+      ]),
+    );
     expect(result).toMatchObject({
       engine: 'native',
       stopReason: 'end_turn',
