@@ -35,6 +35,8 @@ export type ChatEvent =
       detail?: string;
     }
   | { type: 'plan'; plan: PlanView }
+  | { type: 'commit'; commit: string; files: string[] }
+  | { type: 'dependency'; detail: string }
   | { type: 'error'; message: string }
   | { type: 'done'; stopReason: string };
 
@@ -66,6 +68,9 @@ export function createSseParser(onEvent: (event: ChatEvent) => void) {
 }
 
 export interface ChatRequest {
+  /** `dev-agent` talks to the developer agent about `changesetId` (staging only). */
+  agent?: 'dev-agent';
+  changesetId?: string;
   message: string;
   conversationId: string | null;
   /** Tree path of the page the widget is on. */

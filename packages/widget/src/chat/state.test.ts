@@ -139,3 +139,34 @@ describe('explainFailure', () => {
     expect(explainFailure('', true)).toBe('Non consentito dalle regole del sito.');
   });
 });
+
+describe('developer agent events (E10.11)', () => {
+  it('notes the commits and does not count reading code as a change of the site', () => {
+    const state = run([
+      { kind: 'send', text: 'Aggiungi il calendario' },
+      ...events([
+        { type: 'tool_start', id: 't1', name: 'read_file', label: 'Leggo un file' },
+        { type: 'tool_end', id: 't1', name: 'read_file', ok: true, blocked: false },
+        { type: 'commit', commit: 'abc1234', files: ['code/api/eventi.ts', 'code/lib/date.ts'] },
+        { type: 'done', stopReason: 'end_turn' },
+      ]),
+    ]);
+    expect(state.changed).toBe(false);
+    expect(state.messages.at(-1)).toMatchObject({
+      role: 'note',
+      text: 'Modifiche salvate (2 file): code/api/eventi.ts, code/lib/date.ts',
+    });
+  });
+
+  it('asks for the packages until the person approves them', () => {
+    const asked = run(events([{ type: 'dependency', detail: 'servono conferme' }]));
+    expect(asked.dependencyNeeded).toBe(true);
+
+    const approved = run(
+      [{ kind: 'note', text: 'Hai approvato: zod', dependencyApproved: true }],
+      asked,
+    );
+    expect(approved.dependencyNeeded).toBe(false);
+    expect(approved.messages.at(-1)?.text).toBe('Hai approvato: zod');
+  });
+});

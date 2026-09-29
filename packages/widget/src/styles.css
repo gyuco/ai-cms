@@ -1418,3 +1418,33 @@ pre code {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+.chat-modes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.chat-mode {
+  display: flex;
+  gap: 8px;
+}
+
+.chat-new {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.chat-new .chat-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.chat-deps {
+  margin: 0;
+}
+
+.chat-deps summary {
+  cursor: pointer;
+}
