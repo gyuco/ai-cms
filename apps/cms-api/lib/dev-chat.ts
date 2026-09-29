@@ -346,7 +346,7 @@ export async function approveDevDependencies(
   if (packages.length === 0) throw new BadRequestError('Indica almeno un pacchetto.');
   if (packages.length > MAX_PACKAGES) throw new BadRequestError('Troppi pacchetti insieme.');
   for (const name of packages) {
-    const check = checkCommand(`pnpm add --ignore-scripts ${name}`, {
+    const check = checkCommand(`pnpm add --ignore-scripts --ignore-pnpmfile ${name}`, {
       approvedDependencies: [name],
     });
     if (!check.allowed || name.includes('@', 1)) {
