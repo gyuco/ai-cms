@@ -30,6 +30,8 @@ export interface IssueAgentSessionInput {
   scope?: string[];
   conversationId?: string | null;
   changesetId?: string | null;
+  /** Package names the user approved in the chat for this run (`pnpm add`, FR-37). */
+  approvedDependencies?: string[];
   ttlMs?: number;
 }
 
@@ -40,6 +42,7 @@ export interface ResolvedAgentSession {
   env: Env;
   conversationId: string | null;
   changesetId: string | null;
+  approvedDependencies: string[];
   expiresAt: Date;
 }
 
@@ -66,6 +69,7 @@ export async function issueAgentSession(
     scope: input.scope ?? null,
     conversationId: input.conversationId ?? null,
     changesetId: input.changesetId ?? null,
+    approvedDependencies: input.approvedDependencies ?? [],
     expiresAt,
   });
   return { token, expiresAt };
@@ -107,6 +111,7 @@ export async function resolveAgentSession(
     env: row.session.env as Env,
     conversationId: row.session.conversationId,
     changesetId: row.session.changesetId,
+    approvedDependencies: row.session.approvedDependencies,
     expiresAt: row.session.expiresAt,
   };
 }

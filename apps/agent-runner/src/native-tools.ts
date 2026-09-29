@@ -19,6 +19,8 @@ export interface DevToolsOptions {
   root: string;
   /** Throws when the tool use is not allowed; its message goes back to the model. */
   authorize(use: ToolUse): Promise<void>;
+  /** Packages the user approved in the chat: `run` accepts `pnpm add` for these only. */
+  approvedDependencies?: readonly string[];
   runTimeoutMs?: number;
   /** Characters of command or search output kept for the model. */
   maxOutputChars?: number;
@@ -336,10 +338,12 @@ export function createDevTools(options: DevToolsOptions): Tool[] {
   const run = defineTool({
     name: 'run',
     description:
-      'Esegue un comando nel workspace, senza shell. Consentiti solo: pnpm tsc, pnpm test, pnpm lint, pnpm drizzle-kit generate, git status, git diff.',
+      "Esegue un comando nel workspace, senza shell. Consentiti solo: pnpm tsc, pnpm test, pnpm lint, pnpm drizzle-kit generate, git status, git diff, e `pnpm add <pacchetto> --ignore-scripts` per i pacchetti che l'utente ha approvato in chat.",
     input: z.object({ command: z.string().min(1).max(2000) }),
     async run({ command }) {
-      const check = checkCommand(command);
+      const check = checkCommand(command, {
+        approvedDependencies: options.approvedDependencies ?? [],
+      });
       if (!check.allowed) throw new Error(check.message);
       await options.authorize({ tool: 'run', command });
       const [program, ...args] = check.argv;

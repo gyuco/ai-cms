@@ -115,7 +115,7 @@ export interface StartedRun {
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
-export const DEV_AGENT_SYSTEM_PROMPT = `You are the developer agent of AI-CMS. You work in the git clone of one changeset of the website repository (a Next.js site). Make the change the user asks for, keeping the existing structure and conventions. Only these commands can run: pnpm tsc, pnpm test, pnpm lint, pnpm drizzle-kit generate, git status, git diff. New dependencies need the user's confirmation: ask for it instead of adding them. Do not commit: the CMS commits your changes at the end of the turn. Answer the user in Italian.`;
+export const DEV_AGENT_SYSTEM_PROMPT = `You are the developer agent of AI-CMS. You work in the git clone of one changeset of the website repository (a Next.js site). Make the change the user asks for, keeping the existing structure and conventions. Only these commands can run: pnpm tsc, pnpm test, pnpm lint, pnpm drizzle-kit generate, git status, git diff. New dependencies need the user's confirmation: ask for it instead of adding them; once the user approved a package, add it with: pnpm add <package> --ignore-scripts. Do not commit: the CMS commits your changes at the end of the turn. Answer the user in Italian.`;
 
 export function createRunner(options: RunnerOptions) {
   const { cms } = options;
@@ -203,13 +203,14 @@ export function createRunner(options: RunnerOptions) {
     };
     let cli: ClaudeCodeOptions;
     if (whoami.agent === 'dev-agent' && workspace) {
-      await prepareClaudeWorkspace(workspace, { hookCommand: options.hookCommand });
+      const approval = { approvedDependencies: whoami.approvedDependencies ?? [] };
+      await prepareClaudeWorkspace(workspace, { hookCommand: options.hookCommand, ...approval });
       cli = {
         ...common,
         cwd: workspace,
         tools: DEV_AGENT_CLI_TOOLS,
-        allowedTools: devAgentAllowRules(),
-        disallowedTools: devAgentDenyRules(),
+        allowedTools: devAgentAllowRules(approval),
+        disallowedTools: devAgentDenyRules(approval),
         appendSystemPrompt: DEV_AGENT_SYSTEM_PROMPT,
         // Inherited by the PreToolUse hook.
         env: {
@@ -351,6 +352,7 @@ export function createRunner(options: RunnerOptions) {
               new GatewayChatEngine({ baseUrl: cms.baseUrl, token: request.token });
             const tools = createDevTools({
               root: workspace!,
+              approvedDependencies: whoami.approvedDependencies ?? [],
               authorize: async (use) => {
                 const decision = await cms.authorize(request.token, use);
                 if (!decision.allowed) throw new Error(decision.message);

@@ -13,6 +13,7 @@ export interface AgentWhoami {
   env: 'prod' | 'staging';
   changesetId: string | null;
   conversationId: string | null;
+  approvedDependencies?: string[];
   expiresAt: string;
 }
 

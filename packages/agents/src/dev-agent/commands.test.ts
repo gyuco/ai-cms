@@ -77,4 +77,38 @@ describe('checkCommand', () => {
     const check = checkCommand('pnpm add left-pad');
     expect(!check.allowed && check.message).toMatch(/nuove dipendenze richiedono conferma/i);
   });
+
+  describe('with approved dependencies', () => {
+    const approved = { approvedDependencies: ['left-pad', '@scope/pkg'] };
+
+    it.each([
+      'pnpm add left-pad --ignore-scripts',
+      'pnpm add -D left-pad@1.3.0 --ignore-scripts',
+      'pnpm add @scope/pkg@^2 left-pad --save-exact --ignore-scripts',
+    ])('allows %s', (command) => {
+      expect(checkCommand(command, approved)).toMatchObject({ allowed: true });
+    });
+
+    it.each([
+      ['pnpm add left-pad', 'dependency-add'],
+      ['pnpm add other --ignore-scripts', 'dependency-add'],
+      ['pnpm add --ignore-scripts', 'dependency-add'],
+      ['pnpm install left-pad --ignore-scripts', 'dependency-add'],
+      ['npm i left-pad', 'dependency-add'],
+      ['pnpm add left-pad@github:evil/x --ignore-scripts', 'forbidden-argument'],
+      ['pnpm add left-pad@https://x.io/a.tgz --ignore-scripts', 'forbidden-argument'],
+      ['pnpm add ./local --ignore-scripts', 'forbidden-argument'],
+      ['pnpm add left-pad --ignore-scripts --global', 'forbidden-argument'],
+      ['pnpm add left-pad --ignore-scripts --dir=/tmp', 'forbidden-argument'],
+    ])('denies %s (%s)', (command, code) => {
+      expect(checkCommand(command, approved)).toMatchObject({ allowed: false, code });
+    });
+
+    it('still asks for the approval when none was given', () => {
+      expect(checkCommand('pnpm add left-pad --ignore-scripts', {})).toMatchObject({
+        allowed: false,
+        code: 'dependency-add',
+      });
+    });
+  });
 });

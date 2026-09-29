@@ -22,20 +22,28 @@ export const MCP_SERVER_NAME = 'cms';
 /** Built-in tools of the developer agent; everything else (web, subagents…) is removed. */
 export const DEV_AGENT_CLI_TOOLS = ['Read', 'Edit', 'Write', 'Glob', 'Grep', 'Bash'];
 
+export interface DependencyApproval {
+  /** Package names the user approved in the chat; `pnpm add` is allowed for these only. */
+  approvedDependencies?: readonly string[];
+}
+
 /** Allow rules. `/` anchors at the working directory, i.e. the changeset clone. */
-export function devAgentAllowRules(): string[] {
+export function devAgentAllowRules(approval: DependencyApproval = {}): string[] {
   return [
     'Read',
     'Glob',
     'Grep',
     'Edit(/**)',
     ...ALLOWED_COMMANDS.map((argv) => `Bash(${argv.join(' ')} *)`),
+    // Which packages, and the flags, are checked by the hook (`checkCommand`) on every call.
+    ...(approval.approvedDependencies?.length ? ['Bash(pnpm add *)'] : []),
     `mcp__${MCP_SERVER_NAME}__*`,
   ];
 }
 
 /** Deny rules: they win over any allow rule, whatever the settings source. */
-export function devAgentDenyRules(): string[] {
+export function devAgentDenyRules(approval: DependencyApproval = {}): string[] {
+  const approved = Boolean(approval.approvedDependencies?.length);
   return [
     'WebFetch',
     'WebSearch',
@@ -51,7 +59,7 @@ export function devAgentDenyRules(): string[] {
     'Bash(sudo *)',
     'Bash(rm -rf *)',
     'Bash(git push *)',
-    'Bash(pnpm add *)',
+    ...(approved ? [] : ['Bash(pnpm add *)']),
     'Bash(pnpm install *)',
     'Bash(pnpm i *)',
     'Bash(npm *)',
@@ -86,13 +94,15 @@ export function shellQuote(word: string): string {
  * The project settings written in the clone. `hookCommand` is a shell command that runs the
  * hook script shipped in the runner image (outside the clone, so the agent cannot change it).
  */
-export function buildClaudeSettings(options: { hookCommand: string }): ClaudeSettings {
+export function buildClaudeSettings(
+  options: { hookCommand: string } & DependencyApproval,
+): ClaudeSettings {
   return {
     $schema: 'https://json.schemastore.org/claude-code-settings.json',
     permissions: {
       defaultMode: 'dontAsk',
-      allow: devAgentAllowRules(),
-      deny: devAgentDenyRules(),
+      allow: devAgentAllowRules(options),
+      deny: devAgentDenyRules(options),
       blockReadsOutsideWorkingDirectories: true,
       disableBypassPermissionsMode: 'disable',
     },
@@ -118,7 +128,7 @@ const EXCLUDE_LINE = '/.claude/';
  */
 export async function prepareClaudeWorkspace(
   root: string,
-  options: { hookCommand: string },
+  options: { hookCommand: string } & DependencyApproval,
 ): Promise<string> {
   const dir = path.join(root, '.claude');
   await mkdir(dir, { recursive: true });

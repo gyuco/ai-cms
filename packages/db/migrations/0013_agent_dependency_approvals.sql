@@ -1,0 +1,1 @@
+ALTER TABLE "agent_sessions" ADD COLUMN "approved_dependencies" text[] DEFAULT '{}' NOT NULL;

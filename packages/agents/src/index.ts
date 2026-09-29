@@ -3,6 +3,7 @@ export {
   checkCommand,
   describeAllowedCommands,
   splitCommand,
+  type CheckCommandOptions,
   type CommandCheck,
   type CommandDenialCode,
 } from './dev-agent/commands.ts';
