@@ -171,6 +171,35 @@ describe.skipIf(!testDatabaseUrl)('chat turn (E7.4)', () => {
     ).rejects.toThrow();
   });
 
+  it('tells the model the correct shape when it proposes a malformed body', async () => {
+    state.turns = [
+      call('c1', 'propose_plan', {
+        operations: [
+          {
+            op: 'createPage',
+            parentPath: '/site/pages',
+            name: 'servizi',
+            body: {
+              meta: { title: 'Servizi' },
+              blocks: [
+                { id: 't', type: 'heading', text: 'Servizi' },
+                { id: 'p', type: 'paragraph', content: { text: 'Cosa facciamo' } },
+              ],
+            },
+          },
+        ],
+      }),
+      say('Correggo.'),
+    ];
+    const events = await turn({ message: 'Crea la pagina servizi' });
+    const end = events.find((e) => e.type === 'tool_end');
+    expect(end).toMatchObject({ ok: false, blocked: false });
+    const detail = end && end.type === 'tool_end' ? (end.detail ?? '') : '';
+    expect(detail).toContain('Forma corretta');
+    expect(detail).toContain('`level` da 1 a 6');
+    expect(detail).toContain('`content` è un ARRAY di frammenti');
+  });
+
   it('shows the plan the agent proposes and applies it only on "Conferma"', async () => {
     state.turns = [
       call('c1', 'propose_plan', {

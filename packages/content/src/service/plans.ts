@@ -27,6 +27,7 @@ import { z } from 'zod';
 import type { Block } from '../blocks.ts';
 import { diffBodies, type BodyDiff } from '../diff.ts';
 import { formatIssues, formatPath } from '../documents.ts';
+import { bodyShapeGuide } from '../guide.ts';
 import { normalizeBodyForKind } from '../kinds.ts';
 import { applyBlockPatch, blockPatchOperationSchema } from '../patch.ts';
 import {
@@ -45,6 +46,11 @@ import {
 export type { RenderValidator };
 
 const nonNegative = z.number().int().nonnegative();
+
+const BODY_HELP =
+  'Contenuto completo del nodo. Pagina: {"meta":{"title":"..."},"blocks":[{"id":"titolo","type":"heading","level":1,"text":"..."},{"id":"testo","type":"paragraph","content":[{"text":"..."}]}]}. ' +
+  'Layout (header, footer): {"blocks":[...]}. Menu: {"items":[{"label":"...","href":"/..."}]}. ' +
+  '`blocks` è un array, ogni titolo ha `level` (1-6), `content` di un paragrafo è un array di frammenti {"text":"..."}.';
 const path = z.string().min(1).max(1024);
 
 export const planOperationSchema = z.discriminatedUnion(
@@ -54,19 +60,19 @@ export const planOperationSchema = z.discriminatedUnion(
       op: z.literal('createPage'),
       parentPath: path,
       name: z.string(),
-      body: z.unknown(),
+      body: z.unknown().describe(BODY_HELP),
     }),
     z.strictObject({
       op: z.literal('createNode'),
       parentPath: path,
       name: z.string(),
       kind: z.enum(['dir', 'layout', 'menu']),
-      body: z.unknown().optional(),
+      body: z.unknown().describe(BODY_HELP).optional(),
     }),
     z.strictObject({
       op: z.literal('updateBody'),
       path,
-      body: z.unknown(),
+      body: z.unknown().describe(BODY_HELP),
       expectedVersion: nonNegative.optional(),
     }),
     z.strictObject({
@@ -252,7 +258,11 @@ function checkName(name: string) {
 
 function checkBody(kind: string, body: unknown) {
   const result = normalizeBodyForKind(kind, body);
-  if (!result.ok) throw invalid(`contenuto non valido:\n${formatIssues(result.errors)}`);
+  if (!result.ok) {
+    throw invalid(
+      `contenuto non valido:\n${formatIssues(result.errors)}\n\nForma corretta:\n${bodyShapeGuide(kind)}`,
+    );
+  }
 }
 
 function describeOperation(op: PlanOperation): string {
@@ -429,14 +439,26 @@ export async function executePlan(
 ): Promise<PlanResult> {
   const parsed = planSchema.safeParse(plan, { error: z.locales.it().localeError });
   if (!parsed.success) {
+    const hinted = new Set<number>();
     throw new PlanError(
       parsed.error.issues.map((issue) => {
         const [index] = issue.path;
+        const operation = typeof index === 'number' ? plan[index] : undefined;
+        let message = `${formatPath(issue.path.slice(1)) || 'operazione'}: ${issue.message}`;
+        // Once per operation: the shape of the body, so the model can fix it in one go.
+        if (operation && typeof index === 'number' && !hinted.has(index)) {
+          hinted.add(index);
+          const kind =
+            operation.op === 'createNode' && operation.kind !== 'dir' ? operation.kind : 'page';
+          if (operation.op === 'patchBlocks' || 'body' in operation) {
+            message += `\nForma corretta:\n${bodyShapeGuide(kind)}`;
+          }
+        }
         return {
           index: typeof index === 'number' ? index : -1,
           op: typeof index === 'number' ? String(plan[index]?.op ?? '?') : 'piano',
           kind: 'invalid' as const,
-          message: `${formatPath(issue.path.slice(1)) || 'operazione'}: ${issue.message}`,
+          message,
         };
       }),
     );

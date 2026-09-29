@@ -165,7 +165,12 @@ function planTool(args: {
     name: 'propose_plan',
     description:
       'Propone alla persona un piano di modifiche su più nodi: viene validato senza scrivere ' +
-      'nulla e mostrato con Conferma / Annulla. Usalo per modifiche multiple o distruttive.',
+      'nulla e mostrato con Conferma / Annulla. Usalo per modifiche multiple o distruttive. ' +
+      'Ogni operazione ha un campo `op`; `body` ha la forma del tipo di nodo: pagina ' +
+      '{"meta":{"title":"..."},"blocks":[{"id":"titolo","type":"heading","level":1,"text":"..."},' +
+      '{"id":"testo","type":"paragraph","content":[{"text":"..."}]}]}, layout {"blocks":[...]}, ' +
+      'menu {"items":[{"label":"...","href":"/..."}]}. `blocks` è sempre un array; ogni titolo ' +
+      'ha `level` (1-6); `content` di un paragrafo è un array di frammenti {"text":"..."}.',
     input: z.object({ operations: planSchema }),
     async run({ operations }) {
       const before = session.operations();

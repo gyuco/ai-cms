@@ -6,6 +6,13 @@ export { BLOCK_ID_PATTERN, newBlockId } from './ids.ts';
 export { CONTENT_KINDS, isContentKind, normalizeBodyForKind, type ContentKind } from './kinds.ts';
 export { LIMITS } from './limits.ts';
 export { normalizeLayout, normalizePageBody, sanitizeBlocks } from './normalize.ts';
+export {
+  LAYOUT_BODY_EXAMPLE,
+  MENU_BODY_EXAMPLE,
+  PAGE_BODY_EXAMPLE,
+  bodyShapeGuide,
+  contentShapesGuide,
+} from './guide.ts';
 export { HOME_PAGE_PATH, PAGES_PATH, pageNodePath, pageUrl } from './pages.ts';
 export { applyBlockPatch, blockPatchOperationSchema, type BlockPatchOperation } from './patch.ts';
 export { sanitizeHtml } from './sanitize.ts';

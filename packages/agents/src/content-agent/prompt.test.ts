@@ -30,6 +30,13 @@ describe('CONTENT_AGENT_SYSTEM_PROMPT', () => {
     expect(CONTENT_AGENT_SYSTEM_PROMPT).toContain('conflitto di versione');
     expect(CONTENT_AGENT_SYSTEM_PROMPT).toContain("un'unione");
   });
+
+  it('spells out the shape of pages, layouts and menus with a working example', () => {
+    expect(CONTENT_AGENT_SYSTEM_PROMPT).toContain('Forma dei contenuti');
+    expect(CONTENT_AGENT_SYSTEM_PROMPT).toContain('`blocks` è sempre un ARRAY');
+    expect(CONTENT_AGENT_SYSTEM_PROMPT).toContain('"level":1');
+    expect(CONTENT_AGENT_SYSTEM_PROMPT).toContain('"items"');
+  });
 });
 
 describe('buildContentAgentPrompt', () => {

@@ -159,6 +159,50 @@ describe.skipIf(!testDatabaseUrl)('transactional plans', () => {
     await expect(executePlan(db(), root, 'prod', [])).rejects.toThrow(PlanError);
   });
 
+  it('tells the model the correct shape when blocks are malformed', async () => {
+    // The mistakes seen with a real model: `blocks` as an object, a heading without level,
+    // a paragraph whose content is an object.
+    const asObject = await planError(
+      executePlan(db(), root, 'prod', [
+        { op: 'updateBody', path: '/site/pages/index', body: { blocks: { a: 1 } } },
+      ]),
+    );
+    expect(asObject.message).toContain('Forma corretta');
+    expect(asObject.message).toContain('`blocks` è sempre un ARRAY');
+    expect(asObject.message).toContain('"level":1');
+
+    const noLevel = await planError(
+      executePlan(db(), root, 'prod', [
+        {
+          op: 'updateBody',
+          path: '/site/pages/index',
+          body: {
+            blocks: [
+              { id: 't', type: 'heading', text: 'Ciao' },
+              { id: 'p', type: 'paragraph', content: { text: 'Ciao' } },
+            ],
+          },
+        },
+      ]),
+    );
+    expect(noLevel.message).toContain('level');
+    expect(noLevel.message).toContain('`level` da 1 a 6');
+    expect(noLevel.message).toContain('`content` è un ARRAY di frammenti');
+
+    const menu = await planError(
+      executePlan(db(), root, 'prod', [
+        {
+          op: 'createNode',
+          parentPath: '/site/menus',
+          name: 'main',
+          kind: 'menu',
+          body: { blocks: [] },
+        },
+      ]),
+    );
+    expect(menu.message).toContain('"items"');
+  });
+
   it('leaves no trace when an operation fails halfway through', async () => {
     await saveDraft(db(), root, 'prod', '/site/pages/index', page('Home', ['a', 'Ciao']));
     const before = await counts();

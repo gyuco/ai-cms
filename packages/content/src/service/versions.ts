@@ -15,6 +15,7 @@ import {
 import { and, desc, eq, sql } from 'drizzle-orm';
 import { diffBodies, type BodyDiff } from '../diff.ts';
 import { formatIssues } from '../documents.ts';
+import { bodyShapeGuide } from '../guide.ts';
 import { normalizeBodyForKind } from '../kinds.ts';
 
 const { contentVersions, publications } = schema;
@@ -154,7 +155,7 @@ export function normalizeForNode(node: TreeNode, body: unknown): unknown {
   if (!result.ok) {
     const issues = result.errors.map((e) => (e.path ? `${e.path}: ${e.message}` : e.message));
     throw new ValidationError(
-      `Contenuto non valido per ${node.path}:\n${formatIssues(result.errors)}`,
+      `Contenuto non valido per ${node.path}:\n${formatIssues(result.errors)}\n\nForma corretta:\n${bodyShapeGuide(node.kind)}`,
       issues,
     );
   }

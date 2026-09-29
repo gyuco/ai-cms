@@ -4,6 +4,7 @@
  * dynamic part (current page, outline, selection, environment) comes from `context.ts` and is
  * appended fresh on every turn.
  */
+import { contentShapesGuide } from '@ai-cms/content';
 import { renderPageContext, type PageContext } from './context.ts';
 
 const ROLE = `Sei l'agente contenuti di AI-CMS. Aiuti chi gestisce il sito a creare e modificare
@@ -42,6 +43,12 @@ con la nuova versione: rileggi il nodo con read_node, guarda cosa contiene ora e
 persona un'unione tra la sua modifica e la tua, spiegando i due cambiamenti. Scrivi di nuovo
 solo dopo che ha scelto come unirli (FR-64): nessuna delle due modifiche va persa in silenzio.`;
 
+const CONTENT_SHAPES = `Forma dei contenuti. Quando scrivi il corpo di un nodo (create_page, update_blocks,
+propose_plan con updateBody o createPage) usa esattamente queste forme, altrimenti la scrittura
+viene rifiutata; se succede, rileggi l'errore, correggi e riprova senza scusarti a lungo:
+
+${contentShapesGuide()}`;
+
 /** Static part of the system prompt: role, HTML rules, blocked-action, confirmation and conflict behavior. */
 export const CONTENT_AGENT_SYSTEM_PROMPT = [
   ROLE,
@@ -49,6 +56,7 @@ export const CONTENT_AGENT_SYSTEM_PROMPT = [
   CONSTRAINTS,
   CONFIRMATIONS,
   CONFLICTS,
+  CONTENT_SHAPES,
 ].join('\n\n');
 
 /** Full system prompt for one turn: the static role and rules, plus the current page context. */
