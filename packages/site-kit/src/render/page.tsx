@@ -2,11 +2,13 @@ import {
   outline,
   type Block,
   type Layout,
+  type Menu,
   type OutlineEntry,
   type PageBody,
 } from '@ai-cms/content';
-import { FOOTER_NODE, HEADER_NODE, treePath } from '../paths.ts';
+import { FOOTER_NODE, HEADER_NODE, MENU_NODE, treePath } from '../paths.ts';
 import { Blocks } from './blocks.tsx';
+import { MenuNav } from './menu.tsx';
 import type { RenderOptions } from './options.ts';
 
 export interface PageViewProps {
@@ -15,6 +17,8 @@ export interface PageViewProps {
   nodePath: string;
   header?: Layout | null;
   footer?: Layout | null;
+  /** Main menu, shown in the header after its blocks. */
+  menu?: Menu | null;
   /** CSP nonce, for the JSON-LD data block. */
   nonce?: string;
   options?: RenderOptions;
@@ -34,12 +38,17 @@ export function jsonLdText(value: unknown): string {
  * The body of a content page: shared header, `<main>` with the page blocks, shared footer.
  * Each container carries `data-cms-node` with the tree path it comes from (FR-146).
  */
-export function PageView({ page, nodePath, header, footer, nonce, options }: PageViewProps) {
+export function PageView({ page, nodePath, header, footer, menu, nonce, options }: PageViewProps) {
+  const hasHeaderBlocks = !!header && header.blocks.length > 0;
+  const hasMenu = !!menu && menu.items.length > 0;
   return (
     <>
-      {header && header.blocks.length > 0 ? (
+      {hasHeaderBlocks || hasMenu ? (
         <header data-cms-node={treePath(HEADER_NODE)}>
-          <Blocks blocks={header.blocks} options={options} />
+          {hasHeaderBlocks ? <Blocks blocks={header.blocks} options={options} /> : null}
+          {hasMenu ? (
+            <MenuNav menu={menu} nodePath={treePath(MENU_NODE)} options={options} />
+          ) : null}
         </header>
       ) : null}
       <main data-cms-node={treePath(nodePath)}>

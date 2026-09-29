@@ -1,9 +1,11 @@
 import {
   parseLayout,
+  parseMenu,
   parsePageBody,
   parseSiteSettings,
   formatIssues,
   type Layout,
+  type Menu,
   type PageBody,
   type ParseResult,
   type SiteSettings,
@@ -13,6 +15,7 @@ import { listPublishedPages, readPublished } from './content.ts';
 import {
   FOOTER_NODE,
   HEADER_NODE,
+  MENU_NODE,
   SETTINGS_NODE,
   normalizePublicPath,
   pageNodeFromPath,
@@ -64,6 +67,12 @@ export const loadSettings = cache(async (): Promise<SiteSettings> => {
   const entry = await cachedPublished(SETTINGS_NODE, []);
   if (!entry) return DEFAULT_SETTINGS;
   return parsed(SETTINGS_NODE, entry.body, parseSiteSettings) ?? DEFAULT_SETTINGS;
+});
+
+/** The main menu, when published. */
+export const loadMenu = cache(async (): Promise<Menu | null> => {
+  const entry = await cachedPublished(MENU_NODE, []);
+  return entry ? parsed<Menu>(MENU_NODE, entry.body, parseMenu) : null;
 });
 
 /** Shared header and footer, when published. */

@@ -5,6 +5,8 @@ export const HOME_NODE = `${PAGES_ROOT}.index`;
 export const SETTINGS_NODE = 'site.settings';
 export const HEADER_NODE = 'site.layouts.header';
 export const FOOTER_NODE = 'site.layouts.footer';
+/** The menu shown in the header of every page. */
+export const MENU_NODE = 'site.menus.main';
 
 /** Same rule as the `nodes.name` check constraint. */
 const SEGMENT = /^[a-z0-9][a-z0-9_-]{0,62}$/;

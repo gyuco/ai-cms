@@ -26,6 +26,7 @@ const { nodes, contentVersions, publications } = schema;
 /** Layout names of `/site/layouts`, as `getSharedElements` keys them. */
 const HEADER = 'header';
 const FOOTER = 'footer';
+const MENU = 'main';
 
 /** Only the pages of the site have a title that must be unique. */
 const PAGES_LTREE = 'site.pages';
@@ -139,6 +140,7 @@ export async function checkPageVersion(
           settings,
           header: shared.layouts[HEADER] ?? null,
           footer: shared.layouts[FOOTER] ?? null,
+          menu: shared.menus[MENU] ?? null,
           otherTitles: await otherPublishedTitles(db, env, settings, path),
         });
   return { errors: violationLines(report.errors), warnings: violationLines(report.warnings) };

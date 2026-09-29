@@ -1,7 +1,7 @@
 import { PageView, pageMetadata, siteEnv, siteUrl } from '@ai-cms/site-kit';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { loadLayouts, loadPage, loadSettings } from '@ai-cms/site-kit/next';
+import { loadLayouts, loadMenu, loadPage, loadSettings } from '@ai-cms/site-kit/next';
 
 interface Props {
   params: Promise<{ slug?: string[] }>;
@@ -29,13 +29,14 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
 export default async function ContentPage(props: Props) {
   const page = await loadPage(await publicPath(props));
   if (!page) notFound();
-  const { header, footer } = await loadLayouts();
+  const [{ header, footer }, menu] = await Promise.all([loadLayouts(), loadMenu()]);
   return (
     <PageView
       page={page.body}
       nodePath={page.nodePath}
       header={header}
       footer={footer}
+      menu={menu}
       options={{ siteOrigin: siteUrl() }}
     />
   );
