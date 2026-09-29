@@ -60,6 +60,13 @@ export {
   type AgentWhoami,
 } from './agent-runner-api.ts';
 export {
+  DEFAULT_RUN_TIMEOUT_MS,
+  streamAgentRun,
+  type AgentRunInput,
+  type AgentRunOptions,
+  type RunnerStreamEvent,
+} from './agent-runner-run.ts';
+export {
   connectionSecretName,
   createConnection,
   deleteConnection,
@@ -77,6 +84,7 @@ export {
 export { testConnection, type ConnectionTestResult } from './test-connection.ts';
 export {
   appendMessages,
+  approveConversationDependencies,
   createConversation,
   getConversation,
   getOwnConversation,

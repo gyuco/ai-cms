@@ -25,6 +25,8 @@ export interface Conversation {
   /** Node the conversation started from (FR-08); null for conversations not tied to a page. */
   nodeId: string | null;
   title: string | null;
+  /** Packages the person approved in this chat for `pnpm add` (FR-37). */
+  approvedDependencies: string[];
   createdAt: Date;
   updatedAt: Date;
   /** In the order they were exchanged. */
@@ -47,6 +49,7 @@ export async function getConversation(db: Database, id: string): Promise<Convers
     env: row.env as Env,
     nodeId: row.nodeId,
     title: row.title,
+    approvedDependencies: row.approvedDependencies,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     messages: messages.map((m) => ({
@@ -167,4 +170,25 @@ export async function setConversationNode(
     .update(schema.conversations)
     .set({ nodeId })
     .where(eq(schema.conversations.id, conversationId));
+}
+
+/**
+ * Records that the person approved these packages for `pnpm add` in this chat. Only the
+ * endpoint that answers the person's own "Conferma" calls it: the agent has no way to.
+ */
+export async function approveConversationDependencies(
+  db: Database,
+  conversationId: string,
+  packages: readonly string[],
+): Promise<string[]> {
+  const [row] = await db
+    .select({ approved: schema.conversations.approvedDependencies })
+    .from(schema.conversations)
+    .where(eq(schema.conversations.id, conversationId));
+  const merged = [...new Set([...(row?.approved ?? []), ...packages])].sort();
+  await db
+    .update(schema.conversations)
+    .set({ approvedDependencies: merged })
+    .where(eq(schema.conversations.id, conversationId));
+  return merged;
 }
