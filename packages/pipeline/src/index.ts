@@ -161,3 +161,10 @@ export {
   type ReleaseOutcome,
   type ReleaseStep,
 } from './release.ts';
+export {
+  listReleases,
+  type ReleaseHistory,
+  type ReleaseHistoryEntry,
+  type ReleaseHistoryOptions,
+  type ReleaseUser,
+} from './release-history.ts';
