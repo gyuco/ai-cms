@@ -1,12 +1,14 @@
 import { useEffect, useReducer, useRef, useState } from 'preact/hooks';
 import { ApiError } from '../api.ts';
-import { chatReducer, EMPTY_CHAT, type ChatMessage, type SavedLine } from '../chat/state.ts';
+import { Bubble } from '../chat/bubbles.tsx';
+import { chatReducer, EMPTY_CHAT, type SavedLine } from '../chat/state.ts';
 import { streamChat, type PlanView } from '../chat/stream.ts';
 import { usePlanPreview, type PreviewState } from '../chat/use-preview.ts';
 import { formatDateTime, plural } from '../format.ts';
 import { selection, useSelection } from '../selection.ts';
 import { useWidget } from '../widget-context.ts';
 import { ConfirmButton, errorMessage, Status, useAction, useLoad } from './common.tsx';
+import { DevChat } from './dev-chat.tsx';
 
 interface ConversationSummary {
   id: string;
@@ -25,41 +27,6 @@ interface PlanAnswer {
   status: 'applied' | 'cancelled';
   touched?: string[];
   hookError?: string;
-}
-
-const STATUS_ICON = { running: '…', done: '✓', failed: '✗', blocked: '⛔' } as const;
-const STATUS_TEXT = {
-  running: 'in corso',
-  done: 'fatto',
-  failed: 'non riuscito',
-  blocked: 'non consentito',
-} as const;
-
-function ToolList({ message }: { message: ChatMessage }) {
-  if (message.tools.length === 0) return null;
-  return (
-    <ul class="chat-tools">
-      {message.tools.map((step) => (
-        <li key={step.id} class={`chat-tool chat-tool-${step.status}`}>
-          <span aria-hidden="true">{STATUS_ICON[step.status]}</span> {step.label}
-          <span class="visually-hidden"> ({STATUS_TEXT[step.status]})</span>
-          {step.detail && <span class="chat-tool-detail">{step.detail}</span>}
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-function Bubble({ message }: { message: ChatMessage }) {
-  if (message.role === 'note') return <p class="chat-note">{message.text}</p>;
-  const who = message.role === 'user' ? 'Tu' : 'Agente';
-  return (
-    <div class={`chat-message chat-${message.role}`}>
-      <p class="chat-who">{who}</p>
-      {message.text && <p class="chat-text">{message.text}</p>}
-      <ToolList message={message} />
-    </div>
-  );
 }
 
 function PreviewNote({ preview }: { preview: PreviewState }) {
@@ -173,8 +140,8 @@ function PlanCard({
   );
 }
 
-/** Chat tab (E7.4): talk to the content agent about the page you are looking at. */
-export function ChatTab() {
+/** The content agent, about the page you are looking at (E7.4). */
+function ContentChat() {
   const { context, api, reload } = useWidget();
   const { selected } = useSelection();
   const [state, dispatch] = useReducer(chatReducer, EMPTY_CHAT);
@@ -427,6 +394,41 @@ export function ChatTab() {
           )}
         </div>
       </form>
+    </div>
+  );
+}
+
+type Mode = 'content' | 'dev';
+
+/**
+ * Chat tab (E7.4, E10.11): the content agent about the page you are on, and, in staging, the
+ * developer agent working on a change of its own.
+ */
+export function ChatTab() {
+  const { context } = useWidget();
+  const [mode, setMode] = useState<Mode>('content');
+  if (context.env !== 'staging') return <ContentChat />;
+  return (
+    <div class="chat-modes">
+      <div class="chat-mode" role="group" aria-label="Con chi vuoi parlare">
+        <button
+          type="button"
+          class={mode === 'content' ? 'button small' : 'button secondary small'}
+          aria-pressed={mode === 'content'}
+          onClick={() => setMode('content')}
+        >
+          Contenuti
+        </button>
+        <button
+          type="button"
+          class={mode === 'dev' ? 'button small' : 'button secondary small'}
+          aria-pressed={mode === 'dev'}
+          onClick={() => setMode('dev')}
+        >
+          Sviluppo
+        </button>
+      </div>
+      {mode === 'content' ? <ContentChat /> : <DevChat />}
     </div>
   );
 }

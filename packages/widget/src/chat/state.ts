@@ -31,6 +31,8 @@ export interface ChatState {
   error: string | null;
   /** The agent changed the site during this conversation: the page on screen may be stale. */
   changed: boolean;
+  /** The developer agent asked for packages the person has not approved yet. */
+  dependencyNeeded: boolean;
 }
 
 export const EMPTY_CHAT: ChatState = {
@@ -41,6 +43,7 @@ export const EMPTY_CHAT: ChatState = {
   phase: 'idle',
   error: null,
   changed: false,
+  dependencyNeeded: false,
 };
 
 /** A saved line of a conversation, as `GET /_cms/api/chat/conversations/:id` returns it. */
@@ -64,10 +67,21 @@ export type ChatAction =
   | { kind: 'event'; event: ChatEvent }
   | { kind: 'stopped' }
   | { kind: 'failed'; message: string }
-  | { kind: 'plan-answered'; note: string; applied: boolean };
+  | { kind: 'plan-answered'; note: string; applied: boolean }
+  | { kind: 'note'; text: string; dependencyApproved?: boolean };
 
 /** Tools that only read: the site is the same after them. */
-const READ_ONLY = new Set(['list_nodes', 'read_node', 'propose_plan']);
+const READ_ONLY = new Set([
+  'list_nodes',
+  'read_node',
+  'propose_plan',
+  'list_files',
+  'read_file',
+  'search',
+  'get_check_results',
+  'query_staging_db',
+  'open_preview',
+]);
 
 const BLOCKED_PREFIX = 'Permesso negato:';
 
@@ -147,6 +161,21 @@ function reduceEvent(state: ChatState, event: ChatEvent): ChatState {
     }
     case 'plan':
       return { ...state, plan: event.plan };
+    case 'commit':
+      return {
+        ...state,
+        messages: [
+          ...state.messages,
+          {
+            id: nextId(),
+            role: 'note',
+            text: `Modifiche salvate (${event.files.length === 1 ? '1 file' : `${event.files.length} file`}): ${event.files.slice(0, 5).join(', ')}${event.files.length > 5 ? '…' : ''}`,
+            tools: [],
+          },
+        ],
+      };
+    case 'dependency':
+      return { ...state, dependencyNeeded: true };
     case 'error':
       return { ...state, error: event.message };
     case 'done':
@@ -202,6 +231,12 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         plan: null,
         changed: state.changed || action.applied,
         messages: [...state.messages, { id: nextId(), role: 'note', text: action.note, tools: [] }],
+      };
+    case 'note':
+      return {
+        ...state,
+        dependencyNeeded: action.dependencyApproved ? false : state.dependencyNeeded,
+        messages: [...state.messages, { id: nextId(), role: 'note', text: action.text, tools: [] }],
       };
   }
 }

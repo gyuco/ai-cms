@@ -205,6 +205,16 @@ function noteOf(text: string) {
  * does streams back as server-sent events. Returns the stream; the work starts when it is read.
  */
 export function runChatTurn(owner: ChatOwner, input: ChatTurnInput, signal: AbortSignal): Response {
+  return sseResponse((emit) => chatTurn(owner, input, signal, emit));
+}
+
+/**
+ * The stream of a chat turn as an SSE response: `work` emits the events, an error it throws
+ * becomes an `error` event and the stream always ends with `done`.
+ */
+export function sseResponse(
+  work: (emit: (event: ChatStreamEvent) => void) => Promise<void>,
+): Response {
   const encoder = new TextEncoder();
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
@@ -216,7 +226,7 @@ export function runChatTurn(owner: ChatOwner, input: ChatTurnInput, signal: Abor
         }
       };
       try {
-        await chatTurn(owner, input, signal, emit);
+        await work(emit);
       } catch (err) {
         emit({ type: 'error', message: chatErrorMessage(err) });
         emit({ type: 'done', stopReason: 'error' });

@@ -42,6 +42,10 @@ export type ChatStreamEvent =
       detail?: string;
     }
   | { type: 'plan'; plan: PlanView }
+  /** Developer agent: the turn ended with a commit on the changeset branch. */
+  | { type: 'commit'; commit: string; files: string[] }
+  /** Developer agent: a command needs packages the person has not approved yet. */
+  | { type: 'dependency'; detail: string }
   | { type: 'error'; message: string }
   | { type: 'done'; stopReason: string };
 
@@ -63,6 +67,16 @@ const TOOL_LABELS: Record<string, string> = {
   move_node: 'Sposto un contenuto',
   delete_node: 'Elimino un contenuto',
   propose_plan: 'Preparo un piano di modifiche',
+  list_files: 'Guardo i file del sito',
+  read_file: 'Leggo un file',
+  write_file: 'Scrivo un file',
+  edit_file: 'Modifico un file',
+  search: 'Cerco nel codice',
+  run: 'Eseguo un comando',
+  run_checks: 'Avvio i controlli',
+  get_check_results: 'Leggo i risultati dei controlli',
+  query_staging_db: 'Interrogo il database di staging',
+  open_preview: "Apro l'anteprima",
 };
 
 /** Short Italian description of what a tool call is doing, for the "in corso" list. */

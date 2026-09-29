@@ -10,6 +10,8 @@ export interface OpenChangesetEntry {
   status: ChangesetStatus;
   author: ReleaseUser | null;
   headCommit: string | null;
+  /** The chat with the developer agent this changeset was opened from, if any. */
+  conversationId: string | null;
   /** True when "Approva e pubblica" must warn about a destructive migration. */
   destructiveMigration: boolean;
   createdAt: string;
@@ -24,6 +26,7 @@ export async function listOpenChangesets(db: Database): Promise<OpenChangesetEnt
       title: schema.changesets.title,
       status: schema.changesets.status,
       headCommit: schema.changesets.headCommit,
+      conversationId: schema.changesets.conversationId,
       destructiveMigration: schema.changesets.destructiveMigration,
       createdAt: schema.changesets.createdAt,
       updatedAt: schema.changesets.updatedAt,
@@ -44,6 +47,7 @@ export async function listOpenChangesets(db: Database): Promise<OpenChangesetEnt
         ? null
         : { uid: row.uid, username: row.username ?? '', displayName: row.displayName },
     headCommit: row.headCommit,
+    conversationId: row.conversationId,
     destructiveMigration: row.destructiveMigration,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),

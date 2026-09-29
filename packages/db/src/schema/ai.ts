@@ -28,6 +28,11 @@ export const conversations = pgTable(
     env: text('env').notNull(),
     nodeId: uuid('node_id').references(() => nodes.id),
     title: text('title'),
+    /** Packages the person approved in this chat for `pnpm add` (FR-37); only they can add to it. */
+    approvedDependencies: text('approved_dependencies')
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
