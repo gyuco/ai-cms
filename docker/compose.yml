@@ -104,6 +104,8 @@ services:
     environment:
       <<: *egress-env
       CORE_DB_HOST: postgres-core
+      # query_staging_db of the developer agent reads the changeset databases (E10.6).
+      STAGING_DB_HOST: postgres-staging
       S3_ENDPOINT: http://s3:8333
       SMTP_HOST: mailpit
       SMTP_PORT: '1025'
@@ -113,6 +115,7 @@ services:
       [
         pg_core_owner,
         pg_core_api,
+        pg_staging_app,
         session_secret,
         ai_keys_master,
         revalidate_token,

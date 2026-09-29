@@ -3,16 +3,19 @@ import type { Principal } from '@ai-cms/authz';
 import {
   contentTools,
   createMcpHandler,
+  devTools,
   createToolRegistry,
   exampleTools,
   registerTools,
   type ContentContext,
   type ContentExtra,
   type ContentSession,
+  type DevExtra,
   type ToolRegistry,
 } from '@ai-cms/mcp-tools';
 import { assetStorage } from './assets.ts';
 import { db } from './db.ts';
+import { createDevServices } from './dev-services.ts';
 import type { Env } from './http.ts';
 import { checkPageVersion, renderValidator } from './page-rules.ts';
 import { revalidateSite } from './sites.ts';
@@ -22,8 +25,13 @@ import { revalidateSite } from './sites.ts';
  * (E9.1) receive the services they cannot build: the connection, the storage, the HTML rules of
  * E6.7 and the hook that asks the site to regenerate what changed.
  */
-export const registry: ToolRegistry<ContentExtra> = createToolRegistry<ContentExtra>();
-registerTools(registry, [...exampleTools, ...contentTools]);
+export const registry: ToolRegistry<ContentExtra & DevExtra> = createToolRegistry<
+  ContentExtra & DevExtra
+>();
+registerTools<ContentExtra & DevExtra>(registry, [...exampleTools, ...contentTools, ...devTools]);
+
+/** The pipeline as the developer tools see it (E10.6); they refuse any other agent. */
+const dev = createDevServices();
 
 /**
  * The context a content tool runs with. `db` and the rules are cheap; the storage is passed in
@@ -34,7 +42,7 @@ export function contentContext(
   env: Env,
   session: ContentSession,
   storage: Awaited<ReturnType<typeof assetStorage>>,
-): ContentContext {
+): ContentContext & DevExtra {
   return {
     principal,
     env,
@@ -43,8 +51,9 @@ export function contentContext(
     onPublished: revalidateSite,
     validateRendered: renderValidator(db(), principal, env),
     checkPage: (path, body) => checkPageVersion(db(), principal, env, path, body),
+    dev,
     ...session,
-  } as ContentContext;
+  } as ContentContext & DevExtra;
 }
 
 /**
