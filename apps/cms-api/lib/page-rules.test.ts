@@ -97,4 +97,13 @@ describe.skipIf(!testDatabaseUrl)('HTML rules before publishing (E6.7)', () => {
     const result = await check('/site/pages/chi-siamo', page('Bottega', 'Bottega'));
     expect(result.errors.join('\n')).toMatch(/h2|h4/i);
   });
+
+  it('lets settings and menus through: they hold data, not markup', async () => {
+    const settings = { name: 'Bottega', lang: 'it', titleTemplate: '%s · Bottega' };
+    expect(await check('/site/settings', settings)).toEqual({ errors: [], warnings: [] });
+    expect(await check('/site/menus/main', { items: [{ label: 'Home', href: '/' }] })).toEqual({
+      errors: [],
+      warnings: [],
+    });
+  });
 });

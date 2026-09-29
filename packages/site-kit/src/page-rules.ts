@@ -1,4 +1,4 @@
-import { type Layout, type PageBody, type SiteSettings } from '@ai-cms/content';
+import { type Layout, type Menu, type PageBody, type SiteSettings } from '@ai-cms/content';
 import { validateDocument, type ValidationReport } from '@ai-cms/html-rules';
 import { renderPageDocument, type DocumentHead } from './document.tsx';
 import { pageLang, pageTitle } from './metadata.ts';
@@ -14,6 +14,8 @@ export interface PageRulesInput {
   /** Shared header and footer, as the site renders them around `<main>`. */
   header?: Layout | null;
   footer?: Layout | null;
+  /** Main menu, rendered in the header. */
+  menu?: Menu | null;
   /** Titles of the other pages of the site, for the site-wide uniqueness rule. */
   otherTitles?: readonly string[];
   options?: RenderOptions;
@@ -39,6 +41,7 @@ export async function checkPageRules(input: PageRulesInput): Promise<ValidationR
     nodePath: input.nodePath,
     header: input.header ?? null,
     footer: input.footer ?? null,
+    menu: input.menu ?? null,
     options: input.options,
   });
   return validateDocument(html, { otherTitles: [...(input.otherTitles ?? [])] });

@@ -121,6 +121,35 @@ describe('renderPageDocument', () => {
     expect(report.errors, formatReport(report)).toEqual([]);
   });
 
+  it('renders the main menu as a navigation in the header, valid and with nested items', async () => {
+    const menu = {
+      items: [
+        { label: 'Home', href: '/' },
+        {
+          label: 'Servizi',
+          href: '/servizi',
+          children: [{ label: 'Esterno', href: 'https://example.org' }],
+        },
+      ],
+    };
+    const html = renderPageDocument(
+      { lang: 'it', title: 'Prova · Nuovo sito' },
+      { page: page({ meta: {}, blocks: [] }), nodePath: 'site.pages.index', menu },
+    );
+    expect(html).toContain('<header data-cms-node="/site/layouts/header">');
+    expect(html).toContain('<nav aria-label="Menu principale" data-cms-node="/site/menus/main">');
+    expect(html).toContain('<a href="/servizi">Servizi</a>');
+    expect(html).toContain('rel="noopener noreferrer"');
+    const report = await validateDocument(html);
+    expect(report.errors, formatReport(report)).toEqual([]);
+    // An empty menu leaves no header behind.
+    const empty = renderPageDocument(
+      { lang: 'it', title: 'Prova' },
+      { page: page({ meta: {}, blocks: [] }), nodePath: 'site.pages.index', menu: { items: [] } },
+    );
+    expect(empty).not.toContain('<header');
+  });
+
   it('renders every block type as valid, semantic HTML', async () => {
     const html = renderPageDocument(
       { lang: 'it', title: 'Prova · Nuovo sito', description: fullPage.meta.description },

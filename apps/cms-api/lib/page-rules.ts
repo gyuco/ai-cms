@@ -26,6 +26,7 @@ const { nodes, contentVersions, publications } = schema;
 /** Layout names of `/site/layouts`, as `getSharedElements` keys them. */
 const HEADER = 'header';
 const FOOTER = 'footer';
+const MENU = 'main';
 
 /** Only the pages of the site have a title that must be unique. */
 const PAGES_LTREE = 'site.pages';
@@ -85,13 +86,18 @@ export interface PageCheck {
 }
 
 /** The body a node can hold, once parsed; the agent tools check all of them. */
-type DocumentBody = { kind: 'page'; body: PageBody } | { kind: 'layout'; body: Layout };
+type DocumentBody =
+  { kind: 'page'; body: PageBody } | { kind: 'layout'; body: Layout } | { kind: 'shared-data' };
+
+/** Settings and menus hold data, not markup: they are checked on the pages that show them. */
+const SHARED_DATA_PATH = /^\/site\/(settings|menus\/[^/]+)$/;
 
 /**
  * What the body is. A layout (`/site/layouts/header`) is checked as the part it becomes, that
  * is around a page; a page is checked as a page. Anything else has no HTML rules of its own.
  */
 function parseDocument(path: string, body: unknown): DocumentBody | { error: string } {
+  if (SHARED_DATA_PATH.test(path)) return { kind: 'shared-data' };
   if (/\/site\/layouts\/[^/]+$/.test(path) || path === '/site/layouts/header') {
     const layout = parseLayout(body);
     return layout.ok ? { kind: 'layout', body: layout.value } : { error: 'layout non valido' };
@@ -123,6 +129,7 @@ export async function checkPageVersion(
       warnings: [],
     };
   }
+  if (document.kind === 'shared-data') return { errors: [], warnings: [] };
   const report =
     document.kind === 'layout'
       ? // A shared layout is rendered around a page, so the check needs a page to sit in.
@@ -139,6 +146,7 @@ export async function checkPageVersion(
           settings,
           header: shared.layouts[HEADER] ?? null,
           footer: shared.layouts[FOOTER] ?? null,
+          menu: shared.menus[MENU] ?? null,
           otherTitles: await otherPublishedTitles(db, env, settings, path),
         });
   return { errors: violationLines(report.errors), warnings: violationLines(report.warnings) };
