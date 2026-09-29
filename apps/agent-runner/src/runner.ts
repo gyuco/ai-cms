@@ -65,6 +65,17 @@ export type RunnerEvent =
   | { type: 'commit'; commit: string; files: string[] }
   | RunResultEvent;
 
+/**
+ * Whether a user has linked a subscription CLI, as the AI tab shows it (E8.9). The runner has
+ * no database: it only checks that the credentials file exists, never its content (FR-126).
+ */
+export interface SubscriptionStatus {
+  /** The user the answer is about, taken from the session token, never from the caller. */
+  username: string;
+  cli: 'claude-code';
+  linked: boolean;
+}
+
 /** A run that cannot start; mapped to an HTTP error by the server. */
 export class RunError extends Error {
   constructor(
@@ -104,12 +115,43 @@ export interface StartedRun {
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
-export const DEV_AGENT_SYSTEM_PROMPT = `You are the developer agent of AI-CMS. You work in the git clone of one changeset of the website repository (a Next.js site). Make the change the user asks for, keeping the existing structure and conventions. Only these commands can run: pnpm tsc, pnpm test, pnpm lint, pnpm drizzle-kit generate, git status, git diff. New dependencies need the user's confirmation: ask for it instead of adding them. Do not commit: the CMS commits your changes at the end of the turn. Answer the user in Italian.`;
+export const DEV_AGENT_SYSTEM_PROMPT = `You are the developer agent of AI-CMS. You work in the git clone of one changeset of the website repository (a Next.js site). Make the change the user asks for, keeping the existing structure and conventions. Only these commands can run: pnpm tsc, pnpm test, pnpm lint, pnpm drizzle-kit generate, git status, git diff. New dependencies need the user's confirmation: ask for it instead of adding them; once the user approved a package, add it with: pnpm add <package> --ignore-scripts. Do not commit: the CMS commits your changes at the end of the turn. Answer the user in Italian.`;
 
 export function createRunner(options: RunnerOptions) {
   const { cms } = options;
   const busy = new Set<string>();
   const mcpUrl = options.mcpUrl ?? `${cms.baseUrl}/_cms/internal/mcp`;
+
+  /** `CLAUDE_CONFIG_DIR` of a user inside the `cli-auth` volume (TECHNICAL §7.4). */
+  function configDirFor(username: string): string {
+    try {
+      return claudeCodeConfigDir(options.cliAuthRoot, username);
+    } catch {
+      throw new RunError(400, 'invalid_username', `Nome utente non valido: ${username}`);
+    }
+  }
+
+  /** The session token behind the caller; the runner never takes a username from the request. */
+  async function callerOf(token: string): Promise<AgentWhoami> {
+    const whoami = await cms.whoami(token);
+    if (!whoami) {
+      throw new RunError(401, 'unauthenticated', 'Token di sessione agente mancante o scaduto.');
+    }
+    return whoami;
+  }
+
+  /**
+   * Status of the caller's own subscription login. It can only be about the authenticated user,
+   * so this endpoint cannot be used to find out whether an account exists (FR-125).
+   */
+  async function subscriptionStatus(token: string): Promise<SubscriptionStatus> {
+    const whoami = await callerOf(token);
+    return {
+      username: whoami.username,
+      cli: 'claude-code',
+      linked: await hasClaudeCodeLogin(configDirFor(whoami.username)),
+    };
+  }
 
   async function workspaceFor(whoami: AgentWhoami): Promise<string> {
     const id = whoami.changesetId;
@@ -161,13 +203,14 @@ export function createRunner(options: RunnerOptions) {
     };
     let cli: ClaudeCodeOptions;
     if (whoami.agent === 'dev-agent' && workspace) {
-      await prepareClaudeWorkspace(workspace, { hookCommand: options.hookCommand });
+      const approval = { approvedDependencies: whoami.approvedDependencies ?? [] };
+      await prepareClaudeWorkspace(workspace, { hookCommand: options.hookCommand, ...approval });
       cli = {
         ...common,
         cwd: workspace,
         tools: DEV_AGENT_CLI_TOOLS,
-        allowedTools: devAgentAllowRules(),
-        disallowedTools: devAgentDenyRules(),
+        allowedTools: devAgentAllowRules(approval),
+        disallowedTools: devAgentDenyRules(approval),
         appendSystemPrompt: DEV_AGENT_SYSTEM_PROMPT,
         // Inherited by the PreToolUse hook.
         env: {
@@ -240,10 +283,7 @@ export function createRunner(options: RunnerOptions) {
    * streamed, so the server can answer with a plain HTTP error.
    */
   async function start(request: RunRequest): Promise<StartedRun> {
-    const whoami = await cms.whoami(request.token);
-    if (!whoami) {
-      throw new RunError(401, 'unauthenticated', 'Token di sessione agente mancante o scaduto.');
-    }
+    const whoami = await callerOf(request.token);
     const isDev = whoami.agent === 'dev-agent';
     if (!isDev && request.engine === 'native') {
       throw new RunError(
@@ -256,12 +296,8 @@ export function createRunner(options: RunnerOptions) {
 
     let configDir: string | undefined;
     if (request.engine === 'claude-code') {
-      try {
-        configDir = claudeCodeConfigDir(options.cliAuthRoot, whoami.username);
-      } catch {
-        throw new RunError(400, 'invalid_username', `Nome utente non valido: ${whoami.username}`);
-      }
       // Always the profile of the user who asked (TECHNICAL §7.4): never someone else's.
+      configDir = configDirFor(whoami.username);
       if (!(await hasClaudeCodeLogin(configDir))) {
         throw new RunError(
           412,
@@ -316,6 +352,7 @@ export function createRunner(options: RunnerOptions) {
               new GatewayChatEngine({ baseUrl: cms.baseUrl, token: request.token });
             const tools = createDevTools({
               root: workspace!,
+              approvedDependencies: whoami.approvedDependencies ?? [],
               authorize: async (use) => {
                 const decision = await cms.authorize(request.token, use);
                 if (!decision.allowed) throw new Error(decision.message);
@@ -361,6 +398,7 @@ export function createRunner(options: RunnerOptions) {
 
   return {
     start,
+    subscriptionStatus,
     /** Workspaces with a run in progress. */
     get busy(): ReadonlySet<string> {
       return busy;

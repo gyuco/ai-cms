@@ -16,6 +16,7 @@
     "postgres": "^3.4.9"
   },
   "devDependencies": {
+    "@ai-cms/authz": "workspace:*",
     "drizzle-kit": "^0.31.11"
   }
 }

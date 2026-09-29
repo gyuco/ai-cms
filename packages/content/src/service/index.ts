@@ -20,6 +20,7 @@ export {
   type PublishHook,
   type PublishOptions,
   type PublishResult,
+  type RenderValidator,
   type SaveOptions,
   type VersionDiff,
   type VersionInfo,
@@ -76,5 +77,4 @@ export {
   type PlanIssueKind,
   type PlanOperation,
   type PlanResult,
-  type RenderValidator,
 } from './plans.ts';

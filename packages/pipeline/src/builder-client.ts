@@ -1,4 +1,12 @@
-import type { BuilderRun, BuilderRunRequest } from './builder-protocol.ts';
+import type {
+  BuilderReleaseRequest,
+  BuilderReleaseResult,
+  BuilderRun,
+  BuilderRunRequest,
+} from './builder-protocol.ts';
+
+/** The longest a release build may take. */
+const RELEASE_BUILD_TIMEOUT_MS = 30 * 60_000;
 
 export class BuilderError extends Error {
   constructor(
@@ -18,6 +26,11 @@ export interface BuilderClient {
    */
   startRun(request: BuilderRunRequest): Promise<BuilderRun>;
   getRun(runId: string): Promise<BuilderRun>;
+  /**
+   * Builds the artifact of a release into the releases volume. Waits for the build, which can
+   * take several minutes; one release build runs at a time.
+   */
+  buildRelease(request: BuilderReleaseRequest): Promise<BuilderReleaseResult>;
   /** Removes the changeset artifacts; its preview stops shortly after. */
   deleteArtifacts(changesetId: string): Promise<void>;
 }
@@ -35,7 +48,7 @@ export function createBuilderClient(options: BuilderClientOptions): BuilderClien
   const doFetch = options.fetch ?? fetch;
   const base = options.url.replace(/\/+$/, '');
 
-  async function call(method: string, path: string, body?: unknown) {
+  async function call(method: string, path: string, body?: unknown, timeoutMs?: number) {
     let response: Response;
     try {
       response = await doFetch(`${base}${path}`, {
@@ -45,7 +58,7 @@ export function createBuilderClient(options: BuilderClientOptions): BuilderClien
           ...(body === undefined ? {} : { 'content-type': 'application/json' }),
         },
         body: body === undefined ? undefined : JSON.stringify(body),
-        signal: AbortSignal.timeout(options.timeoutMs ?? 30_000),
+        signal: AbortSignal.timeout(timeoutMs ?? options.timeoutMs ?? 30_000),
       });
     } catch (error) {
       throw new BuilderError(`Il builder non risponde (${(error as Error).message})`);
@@ -79,6 +92,11 @@ export function createBuilderClient(options: BuilderClientOptions): BuilderClien
     async getRun(runId) {
       const res = await call('GET', `/runs/${encodeURIComponent(runId)}`);
       if (res.status === 200) return res.json as BuilderRun;
+      throw errorOf(res);
+    },
+    async buildRelease(request) {
+      const res = await call('POST', '/releases', request, RELEASE_BUILD_TIMEOUT_MS);
+      if (res.status === 200) return res.json as BuilderReleaseResult;
       throw errorOf(res);
     },
     async deleteArtifacts(changesetId) {

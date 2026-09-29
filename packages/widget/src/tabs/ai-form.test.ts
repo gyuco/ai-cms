@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import {
   EMPTY_FORM,
+  SUBSCRIPTION_LABEL,
   connectCommand,
   connectionInput,
   fieldsFor,
   providersFor,
   rolesOf,
+  subscriptionState,
   withType,
+  type ConnectionType,
 } from './ai-form.ts';
 
 describe('AI connection form', () => {
@@ -78,6 +81,22 @@ describe('AI connection form', () => {
     ];
     expect(rolesOf(roles, 'a')).toEqual(['content-agent']);
     expect(rolesOf(roles, 'c')).toEqual([]);
-    expect(connectCommand('anna')).toBe('make connect-claude-code user=anna');
+    expect(connectCommand('anna')).toBe(
+      'docker compose exec -it agent-runner cms-connect claude-code --user anna',
+    );
+  });
+
+  it('reads the subscription status the agent-runner answered', () => {
+    const of = (type: ConnectionType, linked?: boolean | null) =>
+      subscriptionState({ type, subscription: linked === undefined ? undefined : { linked } });
+    expect(of('subscription', true)).toBe('linked');
+    expect(of('subscription', false)).toBe('not_linked');
+    // The runner did not answer: the state is unknown, not "not linked".
+    expect(of('subscription', null)).toBe('unknown');
+    expect(of('subscription')).toBe('unknown');
+    expect(of('api', true)).toBeNull();
+    expect(SUBSCRIPTION_LABEL.linked).toBe('Abbonamento collegato');
+    expect(SUBSCRIPTION_LABEL.not_linked).toBe('Abbonamento non collegato');
+    expect(SUBSCRIPTION_LABEL.unknown).toBe('Collegamento non verificabile');
   });
 });

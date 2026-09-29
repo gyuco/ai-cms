@@ -41,6 +41,27 @@ describe('site.init handler', () => {
   });
 });
 
+describe('release and revision handlers', () => {
+  const handlers = createHandlers({} as Database, {
+    site: { gitRoot: '/nonexistent/git', workspacesRoot: '/nonexistent/ws' },
+  });
+
+  it('are registered and check their payload', async () => {
+    await expect(handlers['release.run']!({}, {} as Job)).rejects.toThrow(/releaseId/);
+    await expect(handlers['release.rollback']!({}, {} as Job)).rejects.toThrow(/releaseId/);
+    await expect(handlers['release.rollback']!({ releaseId: 'x' }, {} as Job)).rejects.toThrow(
+      /actorUid/,
+    );
+    await expect(handlers['changeset.revise']!({}, {} as Job)).rejects.toThrow(/changesetId/);
+    await expect(
+      handlers['changeset.revise']!(
+        { changesetId: '0b5c7a4e-9d1f-4c3a-8e2b-1f2a3b4c5d6e' },
+        {} as Job,
+      ),
+    ).rejects.toThrow(/reviewId/);
+  });
+});
+
 describe.skipIf(!testDatabaseUrl)('changeset handlers', () => {
   const stagingTemplate = `tpl_${randomBytes(6).toString('hex')}`;
   let database: Awaited<ReturnType<typeof createTestDatabase>>;
@@ -50,6 +71,9 @@ describe.skipIf(!testDatabaseUrl)('changeset handlers', () => {
   const run = (type: string, payload: unknown) => handlers[type]!(payload, {} as Job);
   const deleted: string[] = [];
   const builder: BuilderClient = {
+    async buildRelease() {
+      throw new Error('non usato');
+    },
     async startRun(request: BuilderRunRequest) {
       return {
         id: 'r',

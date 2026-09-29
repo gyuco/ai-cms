@@ -381,6 +381,8 @@ export function createMockState() {
     hasKey: boolean;
     keyHint: string | null;
     lastTest: { model: string; ok: boolean; tools: boolean; at: string } | null;
+    /** What the agent-runner answered about the subscription login (E8.9). */
+    subscription?: { linked: boolean | null };
   }
   const connections: MockConnection[] = [
     {
@@ -408,6 +410,7 @@ export function createMockState() {
       hasKey: false,
       keyHint: null,
       lastTest: null,
+      subscription: { linked: true },
     },
   ];
   let active = 'anthropic';
@@ -459,7 +462,7 @@ export function createMockState() {
           tools: true,
           latencyMs: 0,
           message:
-            "Claude Code gira nell'agent-runner: la verifica avviene alla prima conversazione. Collega l'abbonamento con make connect-claude-code.",
+            "Claude Code gira nell'agent-runner: la verifica avviene alla prima conversazione. Lo stato del collegamento è quello mostrato qui sopra.",
         });
       }
       connection.lastTest = {

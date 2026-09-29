@@ -82,6 +82,12 @@ importers:
 
   apps/cms-api:
     dependencies:
+      '@ai-cms/agents':
+        specifier: workspace:*
+        version: link:../../packages/agents
+      '@ai-cms/ai':
+        specifier: workspace:*
+        version: link:../../packages/ai
       '@ai-cms/ai-config':
         specifier: workspace:*
         version: link:../../packages/ai-config
@@ -130,6 +136,9 @@ importers:
       react-dom:
         specifier: ^19.3.0
         version: 19.3.0(react@19.3.0)
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
     devDependencies:
       '@types/react':
         specifier: ^19.3.0
@@ -154,6 +163,12 @@ importers:
 
   apps/worker:
     dependencies:
+      '@ai-cms/ai-config':
+        specifier: workspace:*
+        version: link:../../packages/ai-config
+      '@ai-cms/audit':
+        specifier: workspace:*
+        version: link:../../packages/audit
       '@ai-cms/auth':
         specifier: workspace:*
         version: link:../../packages/auth
@@ -166,11 +181,28 @@ importers:
       '@ai-cms/pipeline':
         specifier: workspace:*
         version: link:../../packages/pipeline
+      drizzle-orm:
+        specifier: ^0.45.3
+        version: 0.45.3(postgres@3.4.9)
       tsx:
         specifier: ^4.23.15
         version: 4.23.15
 
-  packages/agents: {}
+  packages/agents:
+    dependencies:
+      '@ai-cms/authz':
+        specifier: workspace:*
+        version: link:../authz
+      '@ai-cms/content':
+        specifier: workspace:*
+        version: link:../content
+      '@ai-cms/tree':
+        specifier: workspace:*
+        version: link:../tree
+    devDependencies:
+      '@ai-cms/db':
+        specifier: workspace:*
+        version: link:../db
 
   packages/ai:
     dependencies:
@@ -287,6 +319,9 @@ importers:
         specifier: ^3.4.9
         version: 3.4.9
     devDependencies:
+      '@ai-cms/authz':
+        specifier: workspace:*
+        version: link:../authz
       drizzle-kit:
         specifier: ^0.31.11
         version: 0.31.11
@@ -321,12 +356,25 @@ importers:
       '@ai-cms/authz':
         specifier: workspace:*
         version: link:../authz
+      '@ai-cms/content':
+        specifier: workspace:*
+        version: link:../content
+      '@ai-cms/tree':
+        specifier: workspace:*
+        version: link:../tree
       '@modelcontextprotocol/sdk':
         specifier: ^1.30.1
         version: 1.30.1(zod@4.6.5)
       zod:
         specifier: ^4.6.5
         version: 4.6.5
+    devDependencies:
+      '@ai-cms/db':
+        specifier: workspace:*
+        version: link:../db
+      sharp:
+        specifier: ^0.35.4
+        version: 0.35.4(@types/node@22.20.4)
 
   packages/pipeline:
     dependencies:
@@ -339,6 +387,9 @@ importers:
       '@ai-cms/db':
         specifier: workspace:*
         version: link:../db
+      '@ai-cms/tree':
+        specifier: workspace:*
+        version: link:../tree
       drizzle-orm:
         specifier: ^0.45.3
         version: 0.45.3(postgres@3.4.9)
@@ -354,13 +405,13 @@ importers:
       '@ai-cms/db':
         specifier: workspace:*
         version: link:../db
+      '@ai-cms/html-rules':
+        specifier: workspace:*
+        version: link:../html-rules
       postgres:
         specifier: ^3.4.9
         version: 3.4.9
     devDependencies:
-      '@ai-cms/html-rules':
-        specifier: workspace:*
-        version: link:../html-rules
       '@types/react':
         specifier: ^19.3.0
         version: 19.3.0

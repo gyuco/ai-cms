@@ -239,6 +239,23 @@ describe('runner with Claude Code', () => {
     });
   });
 
+  it('reports the subscription status of the token owner, without reading the credentials', async () => {
+    const r = runner();
+    expect(await r.subscriptionStatus('tok-dev')).toEqual({
+      username: 'mario',
+      cli: 'claude-code',
+      linked: true,
+    });
+    expect(await r.subscriptionStatus('tok-luigi')).toMatchObject({ linked: false });
+    // The file is what counts: an empty one is no login.
+    await writeFile(path.join(cliAuthRoot, 'mario', 'claude', '.credentials.json'), '');
+    expect(await r.subscriptionStatus('tok-dev')).toMatchObject({ linked: false });
+    await expect(r.subscriptionStatus('nope')).rejects.toMatchObject({
+      status: 401,
+      code: 'unauthenticated',
+    });
+  });
+
   it('rejects unknown tokens, missing workspaces and concurrent runs', async () => {
     const r = runner();
     await expect(

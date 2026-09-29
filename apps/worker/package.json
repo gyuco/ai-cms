@@ -9,10 +9,13 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@ai-cms/ai-config": "workspace:*",
+    "@ai-cms/audit": "workspace:*",
     "@ai-cms/auth": "workspace:*",
     "@ai-cms/content": "workspace:*",
     "@ai-cms/db": "workspace:*",
     "@ai-cms/pipeline": "workspace:*",
+    "drizzle-orm": "^0.45.3",
     "tsx": "^4.23.15"
   }
 }

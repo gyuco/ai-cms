@@ -68,8 +68,24 @@ export {
   modelSupportsTools,
   setActiveConnection,
   updateConnection,
+  withSubscriptionStatus,
+  type ConnectionSubscription,
   type ConnectionView,
   type CreateConnectionInput,
   type UpdateConnectionInput,
 } from './connections.ts';
 export { testConnection, type ConnectionTestResult } from './test-connection.ts';
+export {
+  appendMessages,
+  createConversation,
+  getConversation,
+  getOwnConversation,
+  listNodeConversations,
+  setConversationNode,
+  type Conversation,
+  type ConversationMessage,
+  type ConversationMessageRole,
+  type ConversationSummary,
+  type NewMessage,
+  type OpenConversationInput,
+} from './conversations.ts';

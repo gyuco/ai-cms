@@ -9,6 +9,8 @@ import { RunError, type RunnerEvent, type Runner, type RunRequest } from './runn
  * - `POST /runs` `{ token, engine, prompt, resumeSessionId?, messages? }` → NDJSON stream of
  *   events: `run` (with the run id), the engine events, `commit`, and a final `result`;
  * - `POST /runs/:id/cancel` `{ token }` → stops the run;
+ * - `POST /cli-auth/status` `{ token }` → whether the user behind the token has linked a
+ *   subscription CLI (E8.9): the credentials are never read, only their presence is checked;
  * - `GET /health`.
  *
  * The caller authenticates with the agent session token, which the runner checks with cms-api.
@@ -29,6 +31,10 @@ const runBody = z.object({
 });
 
 const cancelBody = z.object({ token: z.string().min(1).max(512) });
+
+// Only the token: the runner answers about the user the token belongs to, never about a
+// username the caller chooses.
+const cliAuthStatusBody = z.object({ token: z.string().min(1).max(512) });
 
 interface ActiveRun {
   token: string;
@@ -122,6 +128,20 @@ export function createRunnerServer(runner: Runner): Server & { runs: Map<string,
     sendJson(res, 202, { cancelled: true });
   }
 
+  async function handleCliAuthStatus(req: IncomingMessage, res: ServerResponse): Promise<void> {
+    const parsed = cliAuthStatusBody.safeParse(await readJson(req));
+    if (!parsed.success) {
+      sendError(
+        res,
+        400,
+        'bad_request',
+        `Richiesta non valida: ${parsed.error.issues[0]?.message ?? ''}`,
+      );
+      return;
+    }
+    sendJson(res, 200, await runner.subscriptionStatus(parsed.data.token));
+  }
+
   const server = createServer((req, res) => {
     const url = new URL(req.url ?? '/', 'http://agent-runner');
     const handle = async () => {
@@ -131,6 +151,8 @@ export function createRunnerServer(runner: Runner): Server & { runs: Map<string,
         await handleRun(req, res);
       } else if (req.method === 'POST' && /^\/runs\/[^/]+\/cancel$/.test(url.pathname)) {
         handleCancel(decodeURIComponent(url.pathname.split('/')[2]!), await readJson(req), res);
+      } else if (req.method === 'POST' && url.pathname === '/cli-auth/status') {
+        await handleCliAuthStatus(req, res);
       } else {
         sendError(res, 404, 'not_found', 'Risorsa non trovata.');
       }

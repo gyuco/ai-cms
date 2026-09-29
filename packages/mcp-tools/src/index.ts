@@ -1,6 +1,7 @@
 export {
   createToolRegistry,
   defineCmsTool,
+  registerTools,
   toolErrorMessage,
   type CmsSessionContext,
   type CmsTool,
@@ -9,4 +10,45 @@ export {
   type ToolRegistry,
 } from './registry.ts';
 export { exampleTools, whoamiTool } from './examples.ts';
+export {
+  contentTools,
+  readTools,
+  afterWrite,
+  saveOptions,
+  createPageTool,
+  deleteNodeTool,
+  listNodesTool,
+  moveNodeTool,
+  publishTool,
+  readNodeTool,
+  updateBlocksTool,
+  updateLayoutTool,
+  updateMenuTool,
+  updateMetaTool,
+  uploadAssetTool,
+  type ContentContext,
+  type ContentExtra,
+  type ContentServices,
+  type ContentSession,
+  type ContentTool,
+  type PageCheck,
+  type WriteResult,
+} from './content/index.ts';
+export {
+  devTools,
+  getCheckResultsTool,
+  openPreviewTool,
+  queryStagingDbTool,
+  readOnlyProblem,
+  requireDevSession,
+  runChecksTool,
+  type DevCheckResult,
+  type DevCheckStatus,
+  type DevChecksState,
+  type DevContext,
+  type DevExtra,
+  type DevQueryResult,
+  type DevServices,
+  type DevTool,
+} from './dev/index.ts';
 export { createMcpHandler, type McpHandlerOptions, type ToolCallRecord } from './server.ts';

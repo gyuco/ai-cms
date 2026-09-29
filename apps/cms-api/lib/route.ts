@@ -46,6 +46,14 @@ export function requireString(body: Body, key: string, message: string): string 
   return value.trim();
 }
 
+export function optionalString(body: Body, key: string): string | null {
+  const value = body[key];
+  if (value === undefined || value === null || value === '') return null;
+  if (typeof value !== 'string')
+    throw new BadRequestError(`Il campo "${key}" deve essere un testo.`);
+  return value.trim();
+}
+
 export function optionalNumber(body: Body, key: string): number | undefined {
   const value = body[key];
   if (value === undefined || value === null) return undefined;

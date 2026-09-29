@@ -36,8 +36,13 @@ import {
   saveDraft,
   unpublish,
   type PublishHook,
+  type RenderValidator,
   type SaveOptions,
 } from './versions.ts';
+
+// Defined with the publication services: both the plan and a direct publish check the page
+// with the same validator.
+export type { RenderValidator };
 
 const nonNegative = z.number().int().nonnegative();
 const path = z.string().min(1).max(1024);
@@ -153,8 +158,6 @@ export interface PlanResult {
   /** Set when `onPublished` failed after commit; the plan itself is committed. */
   hookError?: string;
 }
-
-export type RenderValidator = (path: string, body: unknown) => Promise<{ errors: string[] }>;
 
 export interface ExecutePlanOptions extends Pick<SaveOptions, 'conversationId' | 'viaAgent'> {
   dryRun?: boolean;

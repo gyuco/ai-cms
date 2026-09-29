@@ -37,12 +37,33 @@ const baseTree: SeedNode[] = [
   { path: 'system', kind: 'dir' },
   { path: 'system.users', kind: 'dir', storage: 'virtual' },
   { path: 'system.agents', kind: 'dir' },
+  { path: 'system.agents.content-agent', kind: 'agent' },
   { path: 'system.ai', kind: 'dir' },
   { path: 'system.secrets', kind: 'dir' },
   { path: 'system.audit', kind: 'dir', storage: 'virtual' },
 ];
 
-/** Initial published content: a blank home page and the site settings (TECHNICAL §10.5). */
+/**
+ * Content agent profile (E9.6, TECHNICAL §7.7): the mask of `packages/authz`'
+ * `contentAgentProfile`, published in the tree so it can be read (and, in phase 2, edited
+ * with `CAP_AGENT_CONFIG`) like any other system setting. It only ever narrows what the
+ * invariants I4 (no secrets) and I6 (no code or schemas) already forbid the agent outright,
+ * whatever this profile allows (`packages/authz/src/constraints.ts`).
+ */
+const CONTENT_AGENT_PROFILE = {
+  name: 'content-agent',
+  envs: ['prod', 'staging'],
+  allow: [
+    {
+      path: 'site',
+      actions: ['read', 'list', 'traverse', 'write', 'create', 'delete', 'publish'],
+      storages: ['db', 's3'],
+    },
+  ],
+  deny: [{ path: 'system', actions: ['manage'] }],
+};
+
+/** Initial published content: a blank home page, the site settings and the agent profiles. */
 const initialContent: Record<string, unknown> = {
   'site.pages.index': { meta: {}, blocks: [] },
   'site.settings': {
@@ -50,6 +71,7 @@ const initialContent: Record<string, unknown> = {
     lang: 'it',
     titleTemplate: '%s · ' + DEFAULT_SITE_NAME,
   },
+  'system.agents.content-agent': CONTENT_AGENT_PROFILE,
 };
 
 export interface SeedOptions {

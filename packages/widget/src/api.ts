@@ -50,7 +50,7 @@ export class ApiError extends Error {
   }
 }
 
-async function failure(response: Response): Promise<ApiError> {
+export async function failure(response: Response): Promise<ApiError> {
   const body = (await response.json().catch(() => null)) as {
     error?: { message?: string; code?: string };
   } | null;

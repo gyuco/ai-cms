@@ -71,6 +71,21 @@ describe('decideAgentToolUse', () => {
     expect(add.message).toMatch(/nuove dipendenze richiedono conferma/i);
   });
 
+  it('allows pnpm add only for the packages the user approved', () => {
+    const approved = { ...dev, approvedDependencies: ['left-pad'] };
+    const command = 'pnpm add left-pad --ignore-scripts';
+    expect(decideAgentToolUse(approved, { tool: 'Bash', command })).toMatchObject({
+      allowed: true,
+    });
+    expect(decideAgentToolUse(dev, { tool: 'Bash', command })).toMatchObject({
+      allowed: false,
+      code: 'dependency-add',
+    });
+    expect(
+      decideAgentToolUse(approved, { tool: 'Bash', command: 'pnpm add evil --ignore-scripts' }),
+    ).toMatchObject({ allowed: false, code: 'dependency-add' });
+  });
+
   it('denies unknown tools and every code tool to the content agent', () => {
     expect(decideAgentToolUse(dev, { tool: 'WebFetch', path: 'x' })).toMatchObject({
       allowed: false,

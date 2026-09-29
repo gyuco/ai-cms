@@ -11,6 +11,8 @@ import {
   listRoleAssignments,
   setActiveConnection,
   updateConnection,
+  withSubscriptionStatus,
+  type ConnectionView,
 } from './connections.ts';
 import { createGateway, type Gateway } from './gateway.ts';
 import { AI_ROLES, getRoleAssignment } from './roles.ts';
@@ -20,6 +22,36 @@ import { testConnection } from './test-connection.ts';
 const masterKey = 'test-master-key-0123456789';
 const options = { masterKey };
 const apiKey = 'sk-ant-api03-connection-test-a1b2';
+
+function view(id: string, type: ConnectionView['type']): ConnectionView {
+  return {
+    id,
+    label: id,
+    type,
+    provider: type === 'subscription' ? 'claude-code' : 'anthropic',
+    baseUrl: null,
+    defaultModel: null,
+    scope: 'shared',
+    ownerUid: null,
+    hasKey: type !== 'subscription',
+    keyHint: null,
+    lastTest: null,
+    createdAt: new Date(0),
+    updatedAt: new Date(0),
+  };
+}
+
+describe('withSubscriptionStatus', () => {
+  it('adds the status of the agent-runner to the subscriptions only', () => {
+    const connections = [view('anthropic', 'api'), view('claude-sub', 'subscription')];
+    for (const linked of [true, false, null]) {
+      expect(withSubscriptionStatus(connections, linked)).toEqual([
+        connections[0],
+        { ...connections[1], subscription: { linked } },
+      ]);
+    }
+  });
+});
 
 describe.skipIf(!testDatabaseUrl)('AI connections and roles', () => {
   let database: Awaited<ReturnType<typeof createTestDatabase>>;

@@ -6,17 +6,21 @@ import {
   EMPTY_FORM,
   PROVIDER_LABEL,
   ROLE_LABEL,
+  SUBSCRIPTION_LABEL,
+  SUBSCRIPTION_TONE,
   TYPE_LABEL,
   connectCommand,
   connectionInput,
   fieldsFor,
   providersFor,
   rolesOf,
+  subscriptionState,
   withType,
   type ConnectionForm,
   type ConnectionType,
   type ConnectionView,
   type RoleAssignment,
+  type SubscriptionState,
 } from './ai-form.ts';
 import {
   ConfirmButton,
@@ -124,6 +128,7 @@ function ConnectionItem({
   const active = roles.length > 0;
   const allRoles = roles.length === Object.keys(ROLE_LABEL).length;
   const id = encodeURIComponent(connection.id);
+  const subscription = subscriptionState(connection);
 
   const runTest = () =>
     void test.run(async (): Promise<Outcome> => {
@@ -177,6 +182,16 @@ function ConnectionItem({
         )}
         <dt>Modello</dt>
         <dd>{connection.defaultModel ?? 'predefinito'}</dd>
+        {subscription && (
+          <>
+            <dt>Abbonamento</dt>
+            <dd>
+              <span class={`badge ${SUBSCRIPTION_TONE[subscription]}`}>
+                {SUBSCRIPTION_LABEL[subscription]}
+              </span>
+            </dd>
+          </>
+        )}
         {connection.type !== 'subscription' && (
           <>
             <dt>Chiave</dt>
@@ -195,7 +210,7 @@ function ConnectionItem({
           </>
         )}
       </dl>
-      {connection.provider === 'claude-code' && <ClaudeCodeHelp username={username} />}
+      {subscription && <SubscriptionHelp username={username} state={subscription} />}
       <div class="actions">
         <button type="button" class="button secondary small" disabled={test.busy} onClick={runTest}>
           {test.busy ? 'Prova in corso…' : 'Prova connessione'}
@@ -243,19 +258,30 @@ function ConnectionItem({
   );
 }
 
-function ClaudeCodeHelp({ username }: { username: string }) {
+/** How to link the subscription, given what the agent-runner answered about it (E8.9). */
+function SubscriptionHelp({ username, state }: { username: string; state: SubscriptionState }) {
+  if (state === 'linked') {
+    return (
+      <div class="help">
+        <p>
+          L&apos;abbonamento è collegato al tuo login ufficiale di Claude Code: puoi provarlo con
+          &quot;Prova connessione&quot;.
+        </p>
+      </div>
+    );
+  }
   return (
     <div class="help">
       <p>
-        L'abbonamento si collega con il login ufficiale di Claude Code, dal terminale del computer
-        dove gira il CMS:
+        {state === 'unknown'
+          ? "Non è stato possibile verificare se l'abbonamento è collegato: l'agent-runner non ha risposto. Se non l'hai ancora fatto, si collega dal terminale del computer dove gira il CMS:"
+          : "L'abbonamento non è ancora collegato. Si collega con il login ufficiale di Claude Code, dal terminale del computer dove gira il CMS:"}
       </p>
       <pre>
         <code>{connectCommand(username)}</code>
       </pre>
       <p class="hint">
-        Ogni utente collega il proprio abbonamento; il CMS non vede mai la password. Poi usa "Prova
-        connessione".
+        Ogni utente collega il proprio abbonamento; il CMS non vede mai la password.
       </p>
     </div>
   );
@@ -462,7 +488,7 @@ function AddConnection({
           </select>
         )}
       </Field>
-      {form.type === 'subscription' && <ClaudeCodeHelp username={username} />}
+      {form.type === 'subscription' && <SubscriptionHelp username={username} state="not_linked" />}
       <div class="actions">
         <button type="submit" class="button" disabled={action.busy}>
           Aggiungi

@@ -1,3 +1,4 @@
+import { contentAgentProfile } from '@ai-cms/authz';
 import { eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { contentVersions, nodes, users } from './schema/index.ts';
@@ -35,6 +36,23 @@ describe.skipIf(!testDatabaseUrl)('seed', () => {
     expect(rows[0]?.body).toEqual({ meta: {}, blocks: [] });
   });
 
+  it('publishes the content agent profile at /system/agents/content-agent (E9.6)', async () => {
+    const [node] = await database.db
+      .select({ kind: nodes.kind })
+      .from(nodes)
+      .where(sql`${nodes.path} = 'system.agents.content-agent'::ltree`);
+    expect(node?.kind).toBe('agent');
+
+    for (const env of ['prod', 'staging'] as const) {
+      const rows = await database.sql`
+        SELECT body FROM published_content
+        WHERE path = 'system.agents.content-agent' AND env = ${env}`;
+      // The seeded profile mirrors packages/authz's own contentAgentProfile: the two must
+      // never drift apart, since the invariants (I4, I6) do not depend on this copy at all.
+      expect(rows[0]?.body).toEqual(contentAgentProfile);
+    }
+  });
+
   it('is idempotent and never prints the password again', async () => {
     const before = await database.db.select({ n: sql<number>`count(*)::int` }).from(nodes);
     const passwords: string[] = [];
@@ -47,7 +65,7 @@ describe.skipIf(!testDatabaseUrl)('seed', () => {
     const after = await database.db.select({ n: sql<number>`count(*)::int` }).from(nodes);
     expect(after).toEqual(before);
     const versions = await database.db.select().from(contentVersions);
-    expect(versions).toHaveLength(4);
+    expect(versions).toHaveLength(6);
   });
 
   it('assigns regular users uids from 1000 after seeding system users', async () => {

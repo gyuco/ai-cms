@@ -31,7 +31,9 @@ afterEach(async () => {
   await rm(base, { recursive: true, force: true });
 });
 
-function tools(extra: { ripgrep?: string | null } = {}): Record<string, Tool> {
+function tools(
+  extra: { ripgrep?: string | null; approvedDependencies?: string[] } = {},
+): Record<string, Tool> {
   const list = createDevTools({
     root,
     authorize: async (use) => {
@@ -148,6 +150,21 @@ describe('native coding tools', () => {
       /nuove dipendenze richiedono conferma/i,
     );
     expect(calls).toHaveLength(1);
+  });
+
+  it('lets pnpm add through to authorization only for approved packages', async () => {
+    denied = () => 'stop before running';
+    const approved = { approvedDependencies: ['left-pad'] };
+    await expect(
+      call('run', { command: 'pnpm add left-pad --ignore-scripts' }, approved),
+    ).rejects.toThrow('stop before running');
+    expect(calls).toEqual([{ tool: 'run', command: 'pnpm add left-pad --ignore-scripts' }]);
+
+    calls.length = 0;
+    await expect(
+      call('run', { command: 'pnpm add other --ignore-scripts' }, approved),
+    ).rejects.toThrow(/non è stato approvato/);
+    expect(calls).toHaveLength(0);
   });
 
   it('truncates long output keeping the end', () => {

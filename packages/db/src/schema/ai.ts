@@ -145,6 +145,11 @@ export const agentSessions = pgTable(
       onDelete: 'cascade',
     }),
     changesetId: uuid('changeset_id').references(() => changesets.id, { onDelete: 'cascade' }),
+    /** Package names the user approved in the chat for `pnpm add` (FR-37); empty by default. */
+    approvedDependencies: text('approved_dependencies')
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
   },

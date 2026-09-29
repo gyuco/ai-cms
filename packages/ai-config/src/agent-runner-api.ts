@@ -27,6 +27,8 @@ export interface AgentWhoami {
   env: ResolvedAgentSession['env'];
   changesetId: string | null;
   conversationId: string | null;
+  /** Packages the user approved in the chat; `pnpm add` is allowed for these only. */
+  approvedDependencies: string[];
   expiresAt: string;
 }
 
@@ -69,7 +71,8 @@ function deny(code: string, message: string): AgentToolDecision {
  * mapped to their tree node and checked with authz for the session's principal and env.
  */
 export function decideAgentToolUse(
-  session: Pick<ResolvedAgentSession, 'principal' | 'agent' | 'env'>,
+  session: Pick<ResolvedAgentSession, 'principal' | 'agent' | 'env'> &
+    Partial<Pick<ResolvedAgentSession, 'approvedDependencies'>>,
   input: Omit<z.output<typeof agentAuthorizeBody>, 'token'>,
 ): AgentToolDecision {
   if (session.agent !== 'dev-agent') {
@@ -81,7 +84,9 @@ export function decideAgentToolUse(
 
   if (COMMAND_TOOLS.has(input.tool)) {
     if (input.command === undefined) return deny('bad-request', 'Comando mancante.');
-    const check = checkCommand(input.command);
+    const check = checkCommand(input.command, {
+      approvedDependencies: session.approvedDependencies ?? [],
+    });
     return check.allowed
       ? { allowed: true, code: 'command-allowed', message: 'Comando consentito.' }
       : deny(check.code, check.message);
@@ -157,6 +162,7 @@ export async function handleAgentWhoami(
     env: session.env,
     changesetId: session.changesetId,
     conversationId: session.conversationId,
+    approvedDependencies: session.approvedDependencies,
     expiresAt: session.expiresAt.toISOString(),
   } satisfies AgentWhoami);
 }

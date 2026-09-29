@@ -182,6 +182,36 @@ describe.skipIf(!testDatabaseUrl)('content versions and publication', () => {
     ).rejects.toThrow(NotFoundError);
   });
 
+  it('refuses to publish a version with blocking HTML errors and explains why (FR-168)', async () => {
+    const validateRendered = vi.fn(async () => ({ errors: ['Manca il <title> della pagina.'] }));
+    await expect(
+      publish(db(), root, 'prod', '/site/pages/chi-siamo', { validateRendered }),
+    ).rejects.toThrow(ValidationError);
+    expect(await published('site.pages.chi-siamo', 'prod')).toBeUndefined();
+
+    const error = await publish(db(), root, 'prod', '/site/pages/chi-siamo', {
+      validateRendered,
+    }).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(ValidationError);
+    const failure = error as ValidationError;
+    // The user always sees the reason, not just a failure.
+    expect(failure.message).toContain('non è pubblicabile');
+    expect(failure.message).toContain('Manca il <title> della pagina.');
+    expect(failure.issues).toEqual(['Manca il <title> della pagina.']);
+    // The version that would have gone online is the one that was checked.
+    const snapshot = await getContent(db(), root, 'prod', '/site/pages/chi-siamo', {
+      version: 'latest',
+    });
+    expect(validateRendered).toHaveBeenCalledWith('/site/pages/chi-siamo', snapshot.body);
+  });
+
+  it('publishes normally when the validator finds nothing', async () => {
+    const validateRendered = vi.fn(async () => ({ errors: [] }));
+    const result = await publish(db(), root, 'prod', '/site/pages/chi-siamo', { validateRendered });
+    expect(result.status).toBe('published');
+    expect(await published('site.pages.chi-siamo', 'prod')).toMatchObject({ version: 2 });
+  });
+
   it('restores an earlier version as a new one', async () => {
     const restored = await restoreVersion(db(), root, 'prod', '/site/pages/chi-siamo', 1, {
       expectedVersion: 2,

@@ -89,6 +89,9 @@ function fakeBuilder(
   });
   return {
     requests,
+    async buildRelease() {
+      throw new Error('non usato nei controlli');
+    },
     async startRun(r) {
       request = r;
       requests.push(r);
@@ -297,6 +300,9 @@ describe.skipIf(!testDatabaseUrl)('runChangesetChecks', () => {
 
     await commitFiles(id, { 'api/prenota.ts': 'export const x = 1;\n' });
     const down: BuilderClient = {
+      buildRelease: async () => {
+        throw new Error('unreachable');
+      },
       startRun: async () => {
         throw new Error('connessione rifiutata');
       },

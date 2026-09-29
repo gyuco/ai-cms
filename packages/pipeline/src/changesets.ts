@@ -39,7 +39,8 @@ const transitions: Record<ChangesetStatus, readonly ChangesetStatus[]> = {
   checking: ['checks_failed', 'ready'],
   checks_failed: ['checking', 'closed'],
   ready: ['releasing', 'draft', 'closed'],
-  releasing: ['released', 'release_failed'],
+  // `checking`: main moved during the release, so the checks run again on the rebased branch.
+  releasing: ['released', 'release_failed', 'checking'],
   release_failed: ['draft', 'closed'],
   released: ['rolled_back'],
   rejected: ['draft', 'closed'],
@@ -130,7 +131,7 @@ export async function createChangeset(
  * The working clone is written by the agent, so its git config and hooks are untrusted:
  * these overrides keep a push from running anything the agent could have configured.
  */
-const UNTRUSTED_REPO_CONFIG = [
+export const UNTRUSTED_REPO_CONFIG = [
   '-c',
   'core.hooksPath=/dev/null',
   '-c',

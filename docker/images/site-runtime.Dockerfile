@@ -1,5 +1,5 @@
-# MVP 1, phase A: serves the site template directly.
-# From E12 on, the runtime serves release artifacts from the releases volume.
+# Serves the release artifact that /data/releases/current points at (E12.2); without one,
+# the site template built into the image.
 FROM node:22-alpine AS build
 ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 COPY docker/images/with-ca.sh /usr/local/bin/with-ca
@@ -17,6 +17,7 @@ ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
 WORKDIR /app
 COPY --from=build --chown=node:node /repo/templates/site/.next/standalone ./
 COPY --from=build --chown=node:node /repo/templates/site/.next/static ./templates/site/.next/static
+COPY --chmod=755 docker/images/site-entrypoint.sh /usr/local/bin/site-entrypoint
 USER node
 EXPOSE 3000
-CMD ["node", "templates/site/server.js"]
+CMD ["site-entrypoint"]

@@ -4,8 +4,8 @@ name: ai-cms
 x-egress-env: &egress-env
   HTTPS_PROXY: http://egress-proxy:3128
   https_proxy: http://egress-proxy:3128
-  NO_PROXY: localhost,127.0.0.1,postgres-core,postgres-prod,postgres-staging,s3,mailpit,cms-api,site-prod,site-staging,previews,builder,egress-proxy
-  no_proxy: localhost,127.0.0.1,postgres-core,postgres-prod,postgres-staging,s3,mailpit,cms-api,site-prod,site-staging,previews,builder,egress-proxy
+  NO_PROXY: localhost,127.0.0.1,postgres-core,postgres-prod,postgres-staging,s3,mailpit,cms-api,agent-runner,site-prod,site-staging,previews,builder,egress-proxy
+  no_proxy: localhost,127.0.0.1,postgres-core,postgres-prod,postgres-staging,s3,mailpit,cms-api,agent-runner,site-prod,site-staging,previews,builder,egress-proxy
   NODE_USE_ENV_PROXY: '1'
 
 x-postgres: &postgres
@@ -104,13 +104,18 @@ services:
     environment:
       <<: *egress-env
       CORE_DB_HOST: postgres-core
+      # query_staging_db of the developer agent reads the changeset databases (E10.6).
+      STAGING_DB_HOST: postgres-staging
       S3_ENDPOINT: http://s3:8333
       SMTP_HOST: mailpit
       SMTP_PORT: '1025'
+      # Asks the agent-runner whether a user has linked a subscription CLI (E8.9).
+      AGENT_RUNNER_URL: http://agent-runner:8070
     secrets:
       [
         pg_core_owner,
         pg_core_api,
+        pg_staging_app,
         session_secret,
         ai_keys_master,
         revalidate_token,
@@ -138,6 +143,7 @@ services:
       STAGING_DB_HOST: postgres-staging
       S3_ENDPOINT: http://s3:8333
       BUILDER_URL: http://builder:8090
+      AGENT_RUNNER_URL: http://agent-runner:8070
     secrets:
       [
         pg_core_worker,
@@ -173,6 +179,9 @@ services:
       APP_DB_HOST: postgres-prod
       S3_ENDPOINT: http://s3:8333
     secrets: [pg_core_site_ro, pg_prod_app, revalidate_token]
+    # The worker points `current` at the released artifact; the runtime only reads it.
+    volumes:
+      - releases:/data/releases:ro
     healthcheck: &site-health
       test: ['CMD-SHELL', 'wget -q -O /dev/null http://127.0.0.1:3000/ || exit 1']
       interval: 5s
@@ -235,6 +244,7 @@ services:
     volumes:
       - workspaces:/data/workspaces:ro
       - artifacts:/data/artifacts
+      - releases:/data/releases
     healthcheck:
       test: ['CMD-SHELL', 'wget -q -O /dev/null http://127.0.0.1:8090/health || exit 1']
       interval: 5s

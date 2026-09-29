@@ -252,13 +252,17 @@ export async function runChangesetChecks(
     await runBuilderChecks(db, changesetId, commit, files, options, results, save);
   }
 
-  await db
-    .update(schema.changesets)
-    .set({ destructiveMigration: destructive, updatedAt: new Date() })
-    .where(eq(schema.changesets.id, changesetId));
-
   const checks = CHECK_NAMES.map((name) => results.get(name)!);
   const summary = summarizeChecks(checks);
+  await db
+    .update(schema.changesets)
+    .set({
+      destructiveMigration: destructive,
+      // Green checks give the changeset a fresh set of correction rounds (FR-42).
+      ...(summary.ok ? { autofixAttempts: 0 } : {}),
+      updatedAt: new Date(),
+    })
+    .where(eq(schema.changesets.id, changesetId));
   const status = summary.ok ? 'ready' : 'checks_failed';
   await setChangesetStatus(db, changesetId, status, {
     details: { commit, failed: summary.failed },

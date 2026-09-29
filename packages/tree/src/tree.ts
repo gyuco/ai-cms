@@ -86,6 +86,7 @@ const PROTECTED_PATHS: ReadonlySet<string> = new Set([
   'system',
   'system.users',
   'system.agents',
+  'system.agents.content-agent',
   'system.ai',
   'system.secrets',
   'system.audit',

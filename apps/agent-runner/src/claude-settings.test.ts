@@ -51,6 +51,14 @@ describe('buildClaudeSettings', () => {
     );
   });
 
+  it('allows pnpm add only once the user approved a package', () => {
+    const approved = buildClaudeSettings({ hookCommand: 'hook', approvedDependencies: ['zod'] });
+    expect(approved.permissions.allow).toContain('Bash(pnpm add *)');
+    expect(approved.permissions.deny).not.toContain('Bash(pnpm add *)');
+    expect(approved.permissions.deny).toContain('Bash(pnpm install *)');
+    expect(settings.permissions.allow).not.toContain('Bash(pnpm add *)');
+  });
+
   it('runs the PreToolUse hook on every tool', () => {
     expect(settings.disableAllHooks).toBe(false);
     expect(settings.hooks).toEqual({

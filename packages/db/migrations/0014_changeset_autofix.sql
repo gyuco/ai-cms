@@ -1,0 +1,1 @@
+ALTER TABLE "changesets" ADD COLUMN "autofix_attempts" integer DEFAULT 0 NOT NULL;

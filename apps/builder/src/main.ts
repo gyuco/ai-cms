@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { contentDatabaseUrl } from '@ai-cms/pipeline/builder';
 import { deleteArtifacts } from './artifact.ts';
+import { buildReleaseArtifact } from './release.ts';
 import { executeRun, type BuilderConfig } from './run.ts';
 import { RunManager } from './runs.ts';
 import { createBuilderHandler } from './server.ts';
@@ -23,6 +24,7 @@ const config: BuilderConfig = {
   artifactsRoot: process.env.ARTIFACTS_ROOT || '/data/artifacts',
   contentDatabaseUrl: contentDatabaseUrl(),
 };
+const releasesRoot = process.env.RELEASES_ROOT || '/data/releases';
 const port = Number(process.env.PORT ?? 8090);
 
 const runs = new RunManager({
@@ -35,6 +37,7 @@ const server = createServer(
     runs,
     token: readToken(),
     deleteArtifacts: (id) => deleteArtifacts(config.artifactsRoot, id),
+    buildRelease: (request) => buildReleaseArtifact(request, { ...config, releasesRoot }),
   }),
 );
 

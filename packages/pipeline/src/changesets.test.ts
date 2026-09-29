@@ -28,6 +28,7 @@ describe('canTransition', () => {
     ['ready', 'draft'],
     ['releasing', 'released'],
     ['releasing', 'release_failed'],
+    ['releasing', 'checking'],
     ['released', 'rolled_back'],
     ['draft', 'closed'],
   ])('allows %s → %s', (from, to) => {
