@@ -19,8 +19,8 @@ export function reviseDedupeKey(changesetId: string): string {
   return `revise:${changesetId}`;
 }
 
-/** Attempts of the release job: only the lock being taken by another release is retried. */
-export const RELEASE_JOB_ATTEMPTS = 8;
+/** Attempts of the release job: only waiting for another release's lock is retried (backoff up to 10 min). */
+export const RELEASE_JOB_ATTEMPTS = 30;
 
 export interface ApproveInput {
   changesetId: string;

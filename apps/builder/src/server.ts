@@ -5,8 +5,11 @@ import {
   isChangesetId,
   isCommitId,
   type BuilderCheckName,
+  type BuilderReleaseRequest,
+  type BuilderReleaseResult,
   type BuilderRunRequest,
 } from '@ai-cms/pipeline/builder';
+import { parseReleaseRequest } from './release.ts';
 import { RunConflictError, type RunManager } from './runs.ts';
 
 export interface BuilderServerOptions {
@@ -14,6 +17,8 @@ export interface BuilderServerOptions {
   /** Shared secret of the worker (`builder_token`). */
   token: string;
   deleteArtifacts: (changesetId: string) => Promise<void>;
+  /** Builds a release artifact; when omitted `POST /releases` answers 501. */
+  buildRelease?: (request: BuilderReleaseRequest) => Promise<BuilderReleaseResult>;
 }
 
 const MAX_BODY = 1024 * 1024;
@@ -86,9 +91,12 @@ export function parseRunRequest(body: unknown): BuilderRunRequest | string {
  * worker's token:
  * - `POST /runs` starts the checks of a changeset commit (202; 409 with the active run),
  * - `GET /runs/:id` returns the run and the result of each check so far,
+ * - `POST /releases` builds the artifact of a release and answers when it is ready (200; 409
+ *   while another release is being built),
  * - `DELETE /changesets/:id` removes the artifacts of a closed changeset.
  */
 export function createBuilderHandler(options: BuilderServerOptions): RequestListener {
+  let releaseBuilding = false;
   return (req, res) => {
     void (async () => {
       const url = new URL(req.url ?? '/', 'http://builder');
@@ -111,6 +119,30 @@ export function createBuilderHandler(options: BuilderServerOptions): RequestList
             return send(res, 409, { error: error.message, run: error.run });
           }
           throw error;
+        }
+      }
+
+      if (req.method === 'POST' && url.pathname === '/releases') {
+        if (!options.buildRelease)
+          return send(res, 501, { error: 'Build delle release non attiva' });
+        let body: unknown;
+        try {
+          body = await readBody(req);
+        } catch (error) {
+          return send(res, 400, { error: `Corpo non valido: ${(error as Error).message}` });
+        }
+        const request = parseReleaseRequest(body);
+        if (typeof request === 'string') return send(res, 400, { error: request });
+        if (releaseBuilding) {
+          return send(res, 409, { error: "Un'altra release è in costruzione" });
+        }
+        releaseBuilding = true;
+        try {
+          return send(res, 200, await options.buildRelease(request));
+        } catch (error) {
+          return send(res, 500, { error: (error as Error).message });
+        } finally {
+          releaseBuilding = false;
         }
       }
 

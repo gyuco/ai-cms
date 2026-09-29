@@ -10,8 +10,10 @@ import {
   applySiteMigrations,
   findDestructiveStatements,
   MigrationError,
+  pendingSiteMigrations,
   readSiteMigrations,
   splitSqlStatements,
+  tablesTouchedBy,
 } from './migrations.ts';
 
 const reasons = (sql: string) => findDestructiveStatements(sql).map((f) => f.reason);
@@ -101,6 +103,26 @@ describe('findDestructiveStatements', () => {
       'ALTER TABLE "a" DROP COLUMN "x"',
       'DROP TABLE "b"',
     ]);
+  });
+});
+
+describe('tablesTouchedBy', () => {
+  it('lists the tables a script alters, drops, empties or writes to', () => {
+    expect(
+      tablesTouchedBy(`
+        CREATE TABLE nuova (id int);
+        ALTER TABLE IF EXISTS public.prodotti ADD COLUMN prezzo int;
+        DROP TABLE "Vecchia";
+        TRUNCATE TABLE ordini;
+        UPDATE clienti SET attivo = true;
+        CREATE UNIQUE INDEX idx ON prodotti (nome);
+        SELECT * FROM lette;
+      `),
+    ).toEqual(['Vecchia', 'clienti', 'ordini', 'prodotti']);
+  });
+
+  it('ignores additive changes that touch no existing data', () => {
+    expect(tablesTouchedBy('CREATE TABLE a (id int); CREATE INDEX i ON a (id);')).toEqual(['a']);
   });
 });
 
@@ -202,5 +224,35 @@ describe.skipIf(!testDatabaseUrl)('applySiteMigrations', () => {
     const sql = postgres(url, { max: 1 });
     expect(await sql`SELECT to_regclass('c') AS c`).toEqual([{ c: null }]);
     await sql.end();
+  });
+
+  it('applies all the missing migrations in one transaction, or none', async () => {
+    const list = [
+      m('0000_a.sql', 'CREATE TABLE a (id int);'),
+      m('0001_b.sql', 'ALTER TABLE a ADD COLUMN b text;'),
+      m('0002_c.sql', 'CREATE TABLE c (id int);'),
+      m('0003_d.sql', 'CREATE TABLE d (id int); SELECT * FROM non_esiste;'),
+    ];
+    const error = await applySiteMigrations(url, list, { atomic: true }).catch((e: unknown) => e);
+    expect((error as MigrationError).migration).toBe('0003_d.sql');
+    const sql = postgres(url, { max: 1 });
+    expect(await sql`SELECT to_regclass('c') AS c`).toEqual([{ c: null }]);
+    expect(await sql`SELECT name FROM _cms.migrations ORDER BY name`).toEqual([
+      { name: '0000_a.sql' },
+      { name: '0001_b.sql' },
+    ]);
+    await sql.end();
+
+    const result = await applySiteMigrations(url, list.slice(0, 3), { atomic: true });
+    expect(result.applied).toEqual(['0002_c.sql']);
+  });
+
+  it('lists the migrations a database has not applied', async () => {
+    const list = [
+      m('0000_a.sql', 'CREATE TABLE a (id int);'),
+      m('0004_e.sql', 'CREATE TABLE e (id int);'),
+    ];
+    expect((await pendingSiteMigrations(url, list)).map((x) => x.name)).toEqual(['0004_e.sql']);
+    expect(await pendingSiteMigrations(testDatabaseUrl!, list)).toHaveLength(2);
   });
 });

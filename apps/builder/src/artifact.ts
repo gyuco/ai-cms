@@ -41,12 +41,18 @@ export interface SavedArtifact {
   preview: PreviewConfig;
 }
 
+export interface AssembleOptions {
+  /** Monorepo copy the site was built in. */
+  repo: string;
+  /** `<repo>/templates/site`, containing `.next/standalone`. */
+  site: string;
+}
+
 /**
- * Turns a `next build` with `output: 'standalone'` into a self-contained artifact in
- * `<artifactsRoot>/<changesetId>/<commit>`: the standalone server plus static files and
- * `public/`. Then points `preview.json` at it, atomically.
+ * Copies a `next build` with `output: 'standalone'` into `dest` (an existing empty directory),
+ * adding the static files and `public/`. Returns the server path relative to `dest`.
  */
-export async function saveArtifact(options: SaveArtifactOptions): Promise<SavedArtifact> {
+export async function assembleStandalone(options: AssembleOptions, dest: string): Promise<string> {
   const standalone = join(options.site, '.next', 'standalone');
   if (!(await exists(standalone))) {
     throw new Error(
@@ -61,21 +67,30 @@ export async function saveArtifact(options: SaveArtifactOptions): Promise<SavedA
   if (!(await exists(join(standalone, serverRel)))) {
     throw new Error('La build non ha prodotto il server standalone (server.js).');
   }
+  await cp(standalone, dest, { recursive: true, verbatimSymlinks: true });
+  await cp(join(options.site, '.next', 'static'), join(dest, appRel, '.next', 'static'), {
+    recursive: true,
+  });
+  if (await exists(join(options.site, 'public'))) {
+    await cp(join(options.site, 'public'), join(dest, appRel, 'public'), {
+      recursive: true,
+      verbatimSymlinks: true,
+    });
+  }
+  return serverRel;
+}
 
+/**
+ * Turns a `next build` with `output: 'standalone'` into a self-contained artifact in
+ * `<artifactsRoot>/<changesetId>/<commit>`: the standalone server plus static files and
+ * `public/`. Then points `preview.json` at it, atomically.
+ */
+export async function saveArtifact(options: SaveArtifactOptions): Promise<SavedArtifact> {
   const base = changesetArtifactsDir(options.artifactsRoot, options.changesetId);
   await mkdir(base, { recursive: true });
   const tmp = join(base, `.tmp-${randomBytes(6).toString('hex')}`);
   try {
-    await cp(standalone, tmp, { recursive: true, verbatimSymlinks: true });
-    await cp(join(options.site, '.next', 'static'), join(tmp, appRel, '.next', 'static'), {
-      recursive: true,
-    });
-    if (await exists(join(options.site, 'public'))) {
-      await cp(join(options.site, 'public'), join(tmp, appRel, 'public'), {
-        recursive: true,
-        verbatimSymlinks: true,
-      });
-    }
+    const serverRel = await assembleStandalone(options, tmp);
     const dir = join(base, options.commit);
     await rm(dir, { recursive: true, force: true });
     await rename(tmp, dir);
