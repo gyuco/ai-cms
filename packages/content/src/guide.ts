@@ -49,6 +49,7 @@ const BLOCK_RULES = [
   '`paragraph` e `quote`: `content` è un ARRAY di frammenti `{ "text": "...", "bold"?, "italic"?, "code"?, "href"? }`, mai un oggetto o una stringa.',
   '`list`: `ordered` (true/false) e `items`, un array di elementi, ognuno un array di frammenti.',
   '`button`: `label` e `href`. `image`: `src`, `alt` (oppure `decorative: true`). `section`: `tag` e `children` (array di blocchi). `html`: `html`.',
+  "Il CSS non va MAI nei contenuti: un blocco `html` con `<style>`, attributo `style` o `<script>` viene rifiutato. Per lo stile del sito serve l'agente sviluppatore in staging (file CSS del sito, poi Approva e pubblica): dillo alla persona invece di tentare.",
 ];
 
 const json = (value: unknown) => JSON.stringify(value);

@@ -58,12 +58,12 @@ describe.skipIf(!testDatabaseUrl)('content versions and publication', () => {
       '/site/pages/chi-siamo',
       {
         meta: { title: 'Chi siamo' },
-        blocks: [{ id: 'h', type: 'html', html: '<p onclick="x()">Ciao</p><script>x()</script>' }],
+        blocks: [{ id: 'h', type: 'html', html: '<p><font color="red">Ciao</font></p>' }],
       },
       { expectedVersion: 1, conversationId: '00000000-0000-4000-8000-000000000001' },
     );
     expect(v2).toMatchObject({ version: 2, viaAgent: 'content-agent' });
-    expect(JSON.stringify(v2.body)).not.toMatch(/script|onclick/);
+    expect(JSON.stringify(v2.body)).not.toContain('font');
     // Versions are per environment.
     const staging = await saveDraft(db(), root, 'staging', '/site/pages/chi-siamo', page('S'));
     expect(staging.version).toBe(1);
@@ -74,6 +74,18 @@ describe.skipIf(!testDatabaseUrl)('content versions and publication', () => {
       .where(eq(schema.auditLog.action, 'content.write'));
     expect(audit).toHaveLength(3);
     expect(audit[1]).toMatchObject({ agent: 'content-agent', nodePath: 'site.pages.chi-siamo' });
+  });
+
+  it('rejects scripts and styles in html blocks instead of saving a stripped version', async () => {
+    for (const html of ['<p onclick="x()">Ciao</p><script>x()</script>', '<style>p{}</style>']) {
+      const error = await saveDraft(db(), root, 'prod', '/site/pages/index', {
+        meta: {},
+        blocks: [{ id: 'h', type: 'html', html }],
+      }).catch((e: unknown) => e as Error);
+      expect(error).toBeInstanceOf(Error);
+      expect((error as Error).message).toContain('blocco "h"');
+      expect((error as Error).message).toContain('agente sviluppatore');
+    }
   });
 
   it('rejects invalid bodies with readable Italian messages', async () => {

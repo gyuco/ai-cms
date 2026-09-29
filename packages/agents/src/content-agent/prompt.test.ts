@@ -22,6 +22,12 @@ describe('CONTENT_AGENT_SYSTEM_PROMPT', () => {
     expect(CONTENT_AGENT_SYSTEM_PROMPT).toContain("non cercare un'altra via");
   });
 
+  it('sends style requests to the developer agent instead of the html blocks', () => {
+    expect(CONTENT_AGENT_SYSTEM_PROMPT).toContain('Stile (CSS)');
+    expect(CONTENT_AGENT_SYSTEM_PROMPT).toContain('agente\nsviluppatore in staging');
+    expect(CONTENT_AGENT_SYSTEM_PROMPT).toContain('file CSS del sito');
+  });
+
   it('requires explicit confirmation before destructive operations', () => {
     expect(CONTENT_AGENT_SYSTEM_PROMPT).toContain('conferma esplicita');
   });

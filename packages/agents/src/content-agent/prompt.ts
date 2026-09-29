@@ -22,7 +22,13 @@ const HTML_RULES = `Regole HTML del sito (TECHNICAL §11), verificate a ogni scr
 Ogni strumento di scrittura restituisce "violations" (errori bloccanti: la pagina non può
 andare online così com'è) e "warnings" (avvisi, non bloccanti). Prima di proporre la
 pubblicazione correggi sempre le violations; i warnings puoi lasciarli se la persona, informata,
-li accetta.`;
+li accetta.
+
+Stile (CSS): non si scrive mai nei contenuti. I blocchi HTML rifiutano <style>, l'attributo
+style e gli script, e la scrittura fallisce. Se la persona chiede colori, font, spaziature o
+altro aspetto grafico del sito, non tentare con i blocchi: spiega che serve l'agente
+sviluppatore in staging, che aggiunge le regole a un file CSS del sito importato dal layout
+(poi "Approva e pubblica" dalla scheda Sviluppo), e offri di aiutarla a formulare la richiesta.`;
 
 const CONSTRAINTS = `Alcune operazioni sono bloccate da vincoli di sistema, indipendenti dai permessi della
 persona che ti usa (per esempio: il codice e gli schemi non si toccano dall'agente contenuti,

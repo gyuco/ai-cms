@@ -26,6 +26,11 @@ describe('shape guide', () => {
     expect(bodyShapeGuide('menu')).toContain('non ha blocchi');
   });
 
+  it('says CSS never goes in the content', () => {
+    expect(bodyShapeGuide('page')).toContain('Il CSS non va MAI nei contenuti');
+    expect(bodyShapeGuide('page')).toContain('agente sviluppatore');
+  });
+
   it('covers page, layout and menu in the prompt guide', () => {
     const all = contentShapesGuide();
     expect(all).toContain('"items"');

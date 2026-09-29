@@ -159,6 +159,25 @@ describe.skipIf(!testDatabaseUrl)('transactional plans', () => {
     await expect(executePlan(db(), root, 'prod', [])).rejects.toThrow(PlanError);
   });
 
+  it('rejects CSS in an html block and points to the developer agent', async () => {
+    const error = await planError(
+      executePlan(db(), root, 'prod', [
+        {
+          op: 'updateBody',
+          path: '/site/pages/index',
+          body: {
+            meta: {},
+            blocks: [{ id: 'css', type: 'html', html: '<style>.h { color: red }</style>' }],
+          },
+        },
+      ]),
+    );
+    expect(error.message).toContain('blocco "css"');
+    expect(error.message).toContain('un tag <style>');
+    expect(error.message).toContain('Il CSS non va nei blocchi HTML');
+    expect(error.message).toContain('agente sviluppatore');
+  });
+
   it('tells the model the correct shape when blocks are malformed', async () => {
     // The mistakes seen with a real model: `blocks` as an object, a heading without level,
     // a paragraph whose content is an object.

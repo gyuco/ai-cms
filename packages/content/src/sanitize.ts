@@ -110,3 +110,20 @@ const OPTIONS: sanitize.IOptions = {
 export function sanitizeHtml(html: string): string {
   return sanitize(html, OPTIONS);
 }
+
+/**
+ * What the sanitizer would silently drop from `html` that an author probably meant to keep:
+ * styles, scripts, event handlers, and content emptied altogether. Used on save to tell the
+ * author (or the agent) instead of storing a block that quietly lost its content.
+ */
+export function describeRemovals(html: string): string[] {
+  const removed: string[] = [];
+  if (/<\s*style[\s>]/i.test(html)) removed.push('un tag <style>');
+  if (/<[^>]*\sstyle\s*=/i.test(html)) removed.push('un attributo style');
+  if (/<\s*script[\s>/]/i.test(html)) removed.push('un tag <script>');
+  if (/<[^>]*\son[a-z]+\s*=/i.test(html)) removed.push('un gestore di eventi (on*)');
+  if (removed.length === 0 && html.trim() !== '' && sanitizeHtml(html).trim() === '') {
+    removed.push('tutto il contenuto');
+  }
+  return removed;
+}

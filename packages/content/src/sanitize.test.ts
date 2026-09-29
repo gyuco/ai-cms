@@ -79,12 +79,12 @@ describe('normalizePageBody', () => {
     const result = normalizePageBody({
       meta: {},
       blocks: [
-        { id: 'a', type: 'html', html: '<p onclick="x()">a</p><script>x()</script>' },
+        { id: 'a', type: 'html', html: '<p><font color="red">a</font></p>' },
         {
           id: 's',
           type: 'section',
           tag: 'div',
-          children: [{ id: 'b', type: 'html', html: '<img src=x onerror=alert(1) alt="b">' }],
+          children: [{ id: 'b', type: 'html', html: '<a href="/x" target="_blank">b</a>' }],
         },
       ],
     });
@@ -98,11 +98,55 @@ describe('normalizePageBody', () => {
             id: 's',
             type: 'section',
             tag: 'div',
-            children: [{ id: 'b', type: 'html', html: '<img src="x" alt="b" />' }],
+            children: [
+              {
+                id: 'b',
+                type: 'html',
+                html: '<a href="/x" target="_blank" rel="noopener noreferrer">b</a>',
+              },
+            ],
           },
         ],
       },
     });
+  });
+
+  it.each([
+    ['un tag <style>', '<style>.h { color: red }</style>'],
+    ['un attributo style', '<p style="color:red">a</p>'],
+    ['un tag <script>', '<p>a</p><script>x()</script>'],
+    ['un gestore di eventi (on*)', '<img src="x.png" onerror="alert(1)" alt="a">'],
+  ])('rejects an html block with %s instead of silently dropping it', (what, html) => {
+    const nested = {
+      id: 's',
+      type: 'section',
+      tag: 'div',
+      children: [{ id: 'css', type: 'html', html }],
+    };
+    for (const result of [
+      normalizePageBody({ meta: {}, blocks: [nested] }),
+      normalizeLayout({ blocks: [nested] }),
+    ]) {
+      expect(result.ok).toBe(false);
+      if (result.ok) continue;
+      expect(result.errors).toHaveLength(1);
+      expect(result.errors[0]?.path).toBe('blocco "css"');
+      expect(result.errors[0]?.message).toContain(what);
+      expect(result.errors[0]?.message).toContain('Il CSS non va nei blocchi HTML');
+      expect(result.errors[0]?.message).toContain('agente sviluppatore');
+    }
+  });
+
+  it('rejects a block the sanitizer would empty, but accepts a genuinely empty one', () => {
+    const emptied = normalizePageBody({
+      meta: {},
+      blocks: [{ id: 'x', type: 'html', html: '<template><p>a</p></template>' }],
+    });
+    expect(emptied.ok).toBe(false);
+    if (!emptied.ok) expect(emptied.errors[0]?.message).toContain('tutto il contenuto');
+    expect(normalizePageBody({ meta: {}, blocks: [{ id: 'x', type: 'html', html: '' }] }).ok).toBe(
+      true,
+    );
   });
 
   it('returns parse errors unchanged', () => {
