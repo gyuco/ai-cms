@@ -111,3 +111,17 @@ export {
   type DestructiveStatement,
   type SiteMigration,
 } from './migrations.ts';
+export {
+  AUTOFIX_JOB,
+  autofixDedupeKey,
+  buildAutofixPrompt,
+  DEFAULT_AUTOFIX_ATTEMPTS,
+  getChangesetChecksState,
+  latestCheckResults,
+  maxAutofixAttempts,
+  planAutofix,
+  type AutofixPlan,
+  type AutofixState,
+  type ChangesetChecksState,
+  type FailedCheck,
+} from './autofix.ts';

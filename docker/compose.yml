@@ -143,6 +143,7 @@ services:
       STAGING_DB_HOST: postgres-staging
       S3_ENDPOINT: http://s3:8333
       BUILDER_URL: http://builder:8090
+      AGENT_RUNNER_URL: http://agent-runner:8070
     secrets:
       [
         pg_core_worker,

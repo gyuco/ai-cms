@@ -154,6 +154,12 @@ importers:
 
   apps/worker:
     dependencies:
+      '@ai-cms/ai-config':
+        specifier: workspace:*
+        version: link:../../packages/ai-config
+      '@ai-cms/audit':
+        specifier: workspace:*
+        version: link:../../packages/audit
       '@ai-cms/auth':
         specifier: workspace:*
         version: link:../../packages/auth
@@ -166,6 +172,9 @@ importers:
       '@ai-cms/pipeline':
         specifier: workspace:*
         version: link:../../packages/pipeline
+      drizzle-orm:
+        specifier: ^0.45.3
+        version: 0.45.3(postgres@3.4.9)
       tsx:
         specifier: ^4.23.15
         version: 4.23.15

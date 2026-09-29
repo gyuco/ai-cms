@@ -48,6 +48,8 @@ export const changesets = pgTable(
       .notNull()
       .default(sql`'{}'`),
     destructiveMigration: boolean('destructive_migration').notNull().default(false),
+    /** Correction rounds the developer agent has been asked for after failed checks (FR-42). */
+    autofixAttempts: integer('autofix_attempts').notNull().default(0),
     conversationId: uuid('conversation_id'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),

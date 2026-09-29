@@ -8,6 +8,7 @@ import {
   createChangesetDatabase,
   dropChangesetDatabase,
   initSiteRepo,
+  maxAutofixAttempts,
   recordWork,
   runChangesetChecks,
   siteRepoPaths,
@@ -16,6 +17,7 @@ import {
   type RunChecksOptions,
   type SiteRepoPaths,
 } from '@ai-cms/pipeline';
+import { autofixHandler, queueAutofix, type AutofixOptions } from './autofix.ts';
 import { stagingSyncHandler } from './staging-sync.ts';
 
 export interface HandlerOptions {
@@ -35,6 +37,8 @@ export interface HandlerOptions {
   stagingDatabaseUrl?: (role: 'owner' | 'app', database: string) => string;
   /** Overrides for the check run (poll interval, published pages…). */
   checks?: Partial<RunChecksOptions>;
+  /** Correction rounds after failed checks (FR-42). */
+  autofix?: AutofixOptions;
 }
 
 const defaultTemplateDir =
@@ -106,14 +110,22 @@ export function createHandlers(
         stagingTemplate: options.stagingTemplate,
         ...options.checks,
       });
+      // The developer agent gets the errors while it has attempts left (FR-42).
+      const autofix =
+        result.status === 'checks_failed' &&
+        (options.autofix?.maxAttempts ?? maxAutofixAttempts()) > 0
+          ? (await queueAutofix(db, changesetIdOf(payload))) !== null
+          : false;
       return {
         commit: result.commit,
         status: result.status,
+        autofixQueued: autofix,
         destructiveMigration: result.destructiveMigration,
         checks: Object.fromEntries(result.checks.map((c) => [c.name, c.status])),
       };
     },
     // Payload: { changesetId }.
+    'changeset.autofix': autofixHandler(db, options.autofix),
     'changeset.close': async (payload) => {
       const id = changesetIdOf(payload);
       const changeset = await closeChangeset(db, id, site);
