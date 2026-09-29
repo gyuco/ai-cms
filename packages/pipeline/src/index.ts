@@ -161,3 +161,22 @@ export {
   type ReleaseOutcome,
   type ReleaseStep,
 } from './release.ts';
+export {
+  latestReleased,
+  requestRollback,
+  rollbackDedupeKey,
+  ROLLBACK_JOB,
+  ROLLBACK_JOB_ATTEMPTS,
+  runRollback,
+  type RollbackOptions,
+  type RollbackOutcome,
+  type RollbackRequest,
+  type RollbackRequested,
+} from './rollback.ts';
+export {
+  listReleases,
+  type ReleaseHistory,
+  type ReleaseHistoryEntry,
+  type ReleaseHistoryOptions,
+  type ReleaseUser,
+} from './release-history.ts';
