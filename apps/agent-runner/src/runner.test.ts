@@ -167,7 +167,7 @@ describe('runner with Claude Code', () => {
     const args = call.args;
     expect(args[args.indexOf('--tools') + 1]).toBe('Read,Edit,Write,Glob,Grep,Bash');
     expect(args[args.indexOf('--permission-mode') + 1]).toBe('dontAsk');
-    expect(args[args.indexOf('--allowedTools') + 1]).toContain('Bash(pnpm test *)');
+    expect(args[args.indexOf('--allowedTools') + 1]).toContain('Bash(git status *)');
     expect(args[args.indexOf('--disallowedTools') + 1]).toContain('Bash(curl *)');
     expect(call.settings?.hooks.PreToolUse[0]?.hooks[0]?.command).toBe(
       "'node' '/app/pre-tool-use.mjs'",

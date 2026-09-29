@@ -59,8 +59,12 @@ describe('decideAgentToolUse', () => {
   });
 
   it('checks commands against the allowlist', () => {
-    expect(decideAgentToolUse(dev, { tool: 'Bash', command: 'pnpm test' })).toMatchObject({
+    expect(decideAgentToolUse(dev, { tool: 'Bash', command: 'git status' })).toMatchObject({
       allowed: true,
+    });
+    expect(decideAgentToolUse(dev, { tool: 'Bash', command: 'pnpm test' })).toMatchObject({
+      allowed: false,
+      code: 'not-allowed',
     });
     expect(decideAgentToolUse(dev, { tool: 'Bash', command: 'curl http://x' })).toMatchObject({
       allowed: false,
@@ -73,7 +77,7 @@ describe('decideAgentToolUse', () => {
 
   it('allows pnpm add only for the packages the user approved', () => {
     const approved = { ...dev, approvedDependencies: ['left-pad'] };
-    const command = 'pnpm add left-pad --ignore-scripts';
+    const command = 'pnpm add left-pad --ignore-scripts --ignore-pnpmfile';
     expect(decideAgentToolUse(approved, { tool: 'Bash', command })).toMatchObject({
       allowed: true,
     });
@@ -82,7 +86,10 @@ describe('decideAgentToolUse', () => {
       code: 'dependency-add',
     });
     expect(
-      decideAgentToolUse(approved, { tool: 'Bash', command: 'pnpm add evil --ignore-scripts' }),
+      decideAgentToolUse(approved, {
+        tool: 'Bash',
+        command: 'pnpm add evil --ignore-scripts --ignore-pnpmfile',
+      }),
     ).toMatchObject({ allowed: false, code: 'dependency-add' });
   });
 

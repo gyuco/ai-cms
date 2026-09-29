@@ -21,7 +21,7 @@ export const runChecksTool: DevTool<typeof noInput> = defineCmsTool({
   name: 'run_checks',
   action: 'write',
   description:
-    'Avvia i controlli automatici del changeset (permessi, migrazioni, tipi, lint, test, regole HTML, sicurezza, e2e) sull’ultimo stato del lavoro. Girano in background: dopo la chiamata usa `get_check_results` finché nessun controllo è in corso. Chiamalo quando hai finito una modifica e non prima.',
+    'Avvia i controlli automatici del changeset (permessi, migrazioni, tipi, lint, test, regole HTML, sicurezza, e2e) nel builder, sull’ultimo lavoro salvato (il CMS lo salva alla fine di ogni turno). Tipi, lint, test e build non si possono eseguire altrove: nel tuo ambiente il codice del sito non gira. Girano in background: dopo la chiamata usa `get_check_results` finché nessun controllo è in corso. Chiamalo quando hai finito una modifica e non prima.',
   input: noInput,
   run: async (_input, ctx) => {
     const id = requireDevSession(ctx, 'write', 'code');

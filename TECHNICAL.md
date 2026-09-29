@@ -715,10 +715,15 @@ in un changeset**: l'hook git e la pipeline lo bloccano comunque.
 
 **Regole comuni:**
 
-- la shell accetta solo comandi in allowlist (`pnpm tsc`, `pnpm test`, `pnpm lint`,
-  `pnpm drizzle-kit generate`, `git status`, `git diff`);
+- la shell accetta solo comandi in allowlist (`git status`, `git diff`). Nulla che esegua il
+  codice del sito (`pnpm test`, `lint`, `tsc`, `build`, `drizzle-kit`, `node`, `npx`…) gira
+  nell'`agent-runner`, dove `/cli-auth` è leggibile dallo stesso utente: tipi, lint, test,
+  migrazioni e build girano nel `builder` (§8.2), sul lavoro che il CMS salva a fine turno;
+  se falliscono, gli errori tornano all'agente (correzione automatica, FR-42). Le migrazioni si
+  scrivono a mano come file SQL numerati in `db/migrations`;
 - `pnpm add` richiede che l'utente abbia `CAP_DEPENDENCY_ADD` (FR-37), altrimenti
-  l'agente produce una richiesta di approvazione;
+  l'agente produce una richiesta di approvazione. Si esegue sempre con `--ignore-scripts`
+  e `--ignore-pnpmfile` (un `.pnpmfile.cjs` scritto dall'agente altrimenti verrebbe eseguito);
 - al termine di ogni turno si fa un commit sul ramo, con autore = utente e trailer
   `Agent: dev-agent`, `AI: <connessione>/<modello>`, `Conversation: <id>`.
 

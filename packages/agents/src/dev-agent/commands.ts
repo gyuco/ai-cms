@@ -2,17 +2,42 @@
  * Shell policy of the developer agent (TECHNICAL §7.6): only the commands in the allowlist
  * run, with no shell features. Shared by the Claude Code hook (checked in cms-api) and the
  * native `run` tool, so both engines accept exactly the same commands.
+ *
+ * Nothing that executes the site's code runs in the agent-runner (E13.4): tests, lint, type
+ * checks, builds and migration generation read files the agent wrote, and the runner holds the
+ * subscription logins in `/cli-auth`. Those checks run in the builder, after the CMS saves the
+ * agent's work at the end of the turn.
  */
 
 /** Allowed commands, as argv prefixes; any further argument is checked by `checkCommand`. */
 export const ALLOWED_COMMANDS: readonly (readonly string[])[] = [
-  ['pnpm', 'tsc'],
-  ['pnpm', 'test'],
-  ['pnpm', 'lint'],
-  ['pnpm', 'drizzle-kit', 'generate'],
   ['git', 'status'],
   ['git', 'diff'],
 ];
+
+/** Programs that would run the site's code (or arbitrary code) if the agent could call them. */
+const CODE_RUNNERS = new Set([
+  'pnpm',
+  'npm',
+  'npx',
+  'yarn',
+  'bun',
+  'node',
+  'tsx',
+  'ts-node',
+  'tsc',
+  'vitest',
+  'eslint',
+  'next',
+  'drizzle-kit',
+  'sh',
+  'bash',
+  'zsh',
+  'python',
+  'python3',
+  'make',
+  'env',
+]);
 
 export type CommandDenialCode =
   'unparsable' | 'not-allowed' | 'dependency-add' | 'forbidden-argument';
@@ -104,6 +129,8 @@ const VERSION_SPEC = /^[A-Za-z0-9.^~<>=*+-]{1,64}$/;
 const DEPENDENCY_FLAGS = new Set(['-D', '--save-dev', '-E', '--save-exact']);
 /** Install scripts of a new package run with the network open, so they never run. */
 const IGNORE_SCRIPTS = '--ignore-scripts';
+/** `.pnpmfile.cjs` is site code that pnpm loads on every install, so it never loads either. */
+const IGNORE_PNPMFILE = '--ignore-pnpmfile';
 
 /** Splits `name@1.2.3` and `@scope/name@^1` into name and (optional) version. */
 function splitPackageSpec(spec: string): { name: string; version?: string } | null {
@@ -118,7 +145,7 @@ function splitPackageSpec(spec: string): { name: string; version?: string } | nu
 /**
  * `pnpm add` after the user approved the packages in the chat (FR-37). Every package must be
  * one of the approved names, and the command may only use the flags above plus
- * `--ignore-scripts`, which is mandatory.
+ * `--ignore-scripts` and `--ignore-pnpmfile`, which are mandatory.
  */
 function checkDependencyAdd(argv: string[], approved: readonly string[]): CommandCheck {
   const deny = (message: string): CommandCheck => ({
@@ -134,7 +161,9 @@ function checkDependencyAdd(argv: string[], approved: readonly string[]): Comman
   const rest = argv.slice(2);
   const flags = rest.filter((arg) => arg.startsWith('-'));
   const specs = rest.filter((arg) => !arg.startsWith('-'));
-  const badFlag = flags.find((flag) => flag !== IGNORE_SCRIPTS && !DEPENDENCY_FLAGS.has(flag));
+  const badFlag = flags.find(
+    (flag) => flag !== IGNORE_SCRIPTS && flag !== IGNORE_PNPMFILE && !DEPENDENCY_FLAGS.has(flag),
+  );
   if (badFlag !== undefined) {
     return {
       allowed: false,
@@ -142,8 +171,10 @@ function checkDependencyAdd(argv: string[], approved: readonly string[]): Comman
       message: `Argomento non consentito: ${badFlag}.`,
     };
   }
-  if (!flags.includes(IGNORE_SCRIPTS)) {
-    return deny(`Aggiungi ${IGNORE_SCRIPTS}: gli script di installazione non possono girare.`);
+  if (!flags.includes(IGNORE_SCRIPTS) || !flags.includes(IGNORE_PNPMFILE)) {
+    return deny(
+      `Aggiungi ${IGNORE_SCRIPTS} e ${IGNORE_PNPMFILE}: script di installazione e .pnpmfile.cjs non possono girare.`,
+    );
   }
   if (specs.length === 0) return deny('Indica il pacchetto da aggiungere.');
   for (const spec of specs) {
@@ -199,10 +230,13 @@ export function checkCommand(command: string, options: CheckCommandOptions = {})
     allowed.every((word, index) => argv[index] === word),
   );
   if (!prefix) {
+    const runsCode = CODE_RUNNERS.has(argv[0]!);
     return {
       allowed: false,
       code: 'not-allowed',
-      message: `Comando non consentito: ${argv[0]}. Comandi ammessi: ${describeAllowedCommands()}.`,
+      message: runsCode
+        ? `Comando non consentito: ${argv.slice(0, 2).join(' ')}. Il codice del sito non gira nel tuo ambiente: tipi, lint, test, build e migrazioni vengono controllati nel builder. Salva il lavoro: a fine turno il CMS lancia i controlli e ti rimanda gli errori (dove disponibile, usa lo strumento run_checks). Comandi ammessi: ${describeAllowedCommands()}.`
+        : `Comando non consentito: ${argv[0]}. Comandi ammessi: ${describeAllowedCommands()}.`,
     };
   }
   const bad = argv.slice(prefix.length).find(forbiddenArgument);

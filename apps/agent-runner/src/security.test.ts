@@ -1,12 +1,12 @@
 import { buildClaudeCodeEnv } from '@ai-cms/ai';
-import { chmod, cp, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { chmod, cp, mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { readFileSync } from 'node:fs';
 import { parse } from 'yaml';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { git } from './commit.ts';
-import { commandEnv } from './native-tools.ts';
+import { commandEnv, createDevTools } from './native-tools.ts';
 
 /**
  * Security tests of the agents (E13.2): no agent reaches keys, secrets, the production network
@@ -275,5 +275,92 @@ describe('the containers of the agents (docker/compose.yml)', () => {
     for (const host of hosts) {
       expect(host).toMatch(/^\.?[a-z0-9-]+(\.[a-z0-9-]+)+$/);
     }
+  });
+});
+
+/**
+ * The site's code never runs where the CLI logins are (E13.4): tests, lint, type checks and
+ * builds read files the agent wrote, and `/cli-auth` belongs to the same Unix user as the
+ * runner. They run in the builder instead, after the CMS saves the work at the end of the turn.
+ */
+describe('the site code and the CLI logins of the runner', () => {
+  let base: string;
+  let root: string;
+  let cliAuth: string;
+  const authorized: unknown[] = [];
+
+  beforeEach(async () => {
+    base = await mkdtemp(path.join(tmpdir(), 'cli-auth-'));
+    root = path.join(base, 'workspaces', 'cs-1');
+    cliAuth = path.join(base, 'cli-auth');
+    await mkdir(path.join(root, 'app'), { recursive: true });
+    await mkdir(path.join(cliAuth, '0', 'claude'), { recursive: true });
+    await writeFile(path.join(cliAuth, '0', 'claude', 'credentials.json'), 'login-secret');
+    authorized.length = 0;
+  });
+
+  afterEach(async () => {
+    await rm(base, { recursive: true, force: true });
+  });
+
+  function tools(approvedDependencies: string[] = []) {
+    const list = createDevTools({
+      root,
+      approvedDependencies,
+      authorize: async (use) => {
+        authorized.push(use);
+      },
+    });
+    return Object.fromEntries(list.map((tool) => [tool.name, tool]));
+  }
+
+  const invoke = (name: string, input: Record<string, unknown>, approved: string[] = []) => {
+    const tool = tools(approved)[name]!;
+    return tool.run(tool.input.parse(input) as never, { toolCallId: 't1' });
+  };
+
+  it.each([
+    'pnpm test',
+    'pnpm lint',
+    'pnpm tsc --noEmit',
+    'pnpm drizzle-kit generate',
+    'pnpm run build',
+    'pnpm exec node -e "1"',
+    'node scripts/steal.mjs',
+    'npx vitest',
+  ])('does not run "%s" in the runner, and asks nobody to authorize it', async (command) => {
+    await expect(invoke('run', { command })).rejects.toThrow();
+    expect(authorized).toEqual([]);
+  });
+
+  it('points the agent to the builder when it tries to run a test', async () => {
+    await expect(invoke('run', { command: 'pnpm test' })).rejects.toThrow(/builder/);
+  });
+
+  it('refuses pnpm add without --ignore-pnpmfile, which would load .pnpmfile.cjs from the clone', async () => {
+    await writeFile(path.join(root, '.pnpmfile.cjs'), 'module.exports = {};\n');
+    await expect(
+      invoke('run', { command: 'pnpm add left-pad --ignore-scripts' }, ['left-pad']),
+    ).rejects.toThrow(/ignore-pnpmfile/);
+    expect(authorized).toEqual([]);
+  });
+
+  it('cannot read the CLI logins through a symlink, "..", an absolute path or search', async () => {
+    await symlink(cliAuth, path.join(root, 'auth-link'));
+    await symlink(
+      path.join(cliAuth, '0', 'claude', 'credentials.json'),
+      path.join(root, 'creds.json'),
+    );
+    const attempts = [
+      () => invoke('read_file', { path: 'auth-link/0/claude/credentials.json' }),
+      () => invoke('read_file', { path: 'creds.json' }),
+      () => invoke('read_file', { path: '../../cli-auth/0/claude/credentials.json' }),
+      () => invoke('read_file', { path: path.join(cliAuth, '0', 'claude', 'credentials.json') }),
+      () => invoke('list_files', { path: 'auth-link', recursive: true }),
+      () => invoke('write_file', { path: 'auth-link/0/claude/credentials.json', content: 'x' }),
+    ];
+    for (const attempt of attempts) await expect(attempt()).rejects.toThrow();
+    const found = String(await invoke('search', { pattern: 'login-secret' }));
+    expect(found).not.toContain('login-secret');
   });
 });

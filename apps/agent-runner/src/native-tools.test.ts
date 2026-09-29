@@ -156,13 +156,15 @@ describe('native coding tools', () => {
     denied = () => 'stop before running';
     const approved = { approvedDependencies: ['left-pad'] };
     await expect(
-      call('run', { command: 'pnpm add left-pad --ignore-scripts' }, approved),
+      call('run', { command: 'pnpm add left-pad --ignore-scripts --ignore-pnpmfile' }, approved),
     ).rejects.toThrow('stop before running');
-    expect(calls).toEqual([{ tool: 'run', command: 'pnpm add left-pad --ignore-scripts' }]);
+    expect(calls).toEqual([
+      { tool: 'run', command: 'pnpm add left-pad --ignore-scripts --ignore-pnpmfile' },
+    ]);
 
     calls.length = 0;
     await expect(
-      call('run', { command: 'pnpm add other --ignore-scripts' }, approved),
+      call('run', { command: 'pnpm add other --ignore-scripts --ignore-pnpmfile' }, approved),
     ).rejects.toThrow(/non è stato approvato/);
     expect(calls).toHaveLength(0);
   });

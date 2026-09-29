@@ -338,7 +338,7 @@ export function createDevTools(options: DevToolsOptions): Tool[] {
   const run = defineTool({
     name: 'run',
     description:
-      "Esegue un comando nel workspace, senza shell. Consentiti solo: pnpm tsc, pnpm test, pnpm lint, pnpm drizzle-kit generate, git status, git diff, e `pnpm add <pacchetto> --ignore-scripts` per i pacchetti che l'utente ha approvato in chat.",
+      "Esegue un comando nel workspace, senza shell. Consentiti solo: git status, git diff, e `pnpm add <pacchetto> --ignore-scripts --ignore-pnpmfile` per i pacchetti che l'utente ha approvato in chat. Test, lint, tipi, build e migrazioni non girano qui: li esegue il builder a fine turno.",
     input: z.object({ command: z.string().min(1).max(2000) }),
     async run({ command }) {
       const check = checkCommand(command, {

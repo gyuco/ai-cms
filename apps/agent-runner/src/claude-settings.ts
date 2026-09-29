@@ -64,6 +64,18 @@ export function devAgentDenyRules(approval: DependencyApproval = {}): string[] {
     'Bash(pnpm i *)',
     'Bash(npm *)',
     'Bash(npx *)',
+    // The site's code never runs in the runner, which holds the subscription logins (E13.4).
+    'Bash(pnpm test *)',
+    'Bash(pnpm lint *)',
+    'Bash(pnpm tsc *)',
+    'Bash(pnpm run *)',
+    'Bash(pnpm exec *)',
+    'Bash(pnpm dlx *)',
+    'Bash(pnpm drizzle-kit *)',
+    'Bash(node *)',
+    'Bash(tsx *)',
+    'Bash(sh *)',
+    'Bash(bash *)',
   ];
 }
 

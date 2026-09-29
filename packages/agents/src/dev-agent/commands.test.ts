@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { checkCommand, splitCommand } from './commands.ts';
+import { checkCommand, describeAllowedCommands, splitCommand } from './commands.ts';
 
 describe('splitCommand', () => {
   it('splits words and quoted strings', () => {
@@ -30,18 +30,12 @@ describe('splitCommand', () => {
 });
 
 describe('checkCommand', () => {
-  it.each([
-    'pnpm tsc --noEmit',
-    'pnpm test',
-    'pnpm test -- src/lib/a.test.ts',
-    'pnpm lint',
-    'pnpm drizzle-kit generate',
-    'git status',
-    'git status --porcelain',
-    'git diff --stat HEAD',
-  ])('allows %s', (command) => {
-    expect(checkCommand(command)).toMatchObject({ allowed: true });
-  });
+  it.each(['git status', 'git status --porcelain', 'git diff --stat HEAD'])(
+    'allows %s',
+    (command) => {
+      expect(checkCommand(command)).toMatchObject({ allowed: true });
+    },
+  );
 
   it.each([
     ['curl https://example.com', 'not-allowed'],
@@ -66,11 +60,47 @@ describe('checkCommand', () => {
     ['git diff --ext-diff', 'forbidden-argument'],
     ['git diff /etc/passwd', 'forbidden-argument'],
     ['git diff ../other', 'forbidden-argument'],
-    ['pnpm test -C /tmp', 'forbidden-argument'],
-    ['pnpm test --dir=../x', 'forbidden-argument'],
-    ['pnpm lint --config.foo=bar', 'forbidden-argument'],
+    ['git status -C /tmp', 'forbidden-argument'],
+    ['git diff --dir=../x', 'forbidden-argument'],
   ])('denies %s (%s)', (command, code) => {
     expect(checkCommand(command)).toMatchObject({ allowed: false, code });
+  });
+
+  // The site's code never runs next to the subscription logins (E13.4).
+  it.each([
+    'pnpm tsc --noEmit',
+    'pnpm test',
+    'pnpm test -- src/lib/a.test.ts',
+    'pnpm lint',
+    'pnpm drizzle-kit generate',
+    'pnpm run build',
+    'pnpm exec vitest',
+    'node scripts/x.mjs',
+    'npx tsx x.ts',
+    'tsc --noEmit',
+    'sh script.sh',
+  ])('denies %s: it would run the code of the site', (command) => {
+    const check = checkCommand(command);
+    expect(check).toMatchObject({ allowed: false });
+    expect(!check.allowed && check.message).toMatch(/builder/);
+  });
+
+  it('allows only read-only git commands without a dependency approval', () => {
+    expect(describeAllowedCommands()).toBe('git status, git diff');
+  });
+
+  it('requires both --ignore-scripts and --ignore-pnpmfile on pnpm add', () => {
+    const approved = { approvedDependencies: ['left-pad'] };
+    for (const command of [
+      'pnpm add left-pad',
+      'pnpm add left-pad --ignore-scripts',
+      'pnpm add left-pad --ignore-pnpmfile',
+    ]) {
+      expect(checkCommand(command, approved)).toMatchObject({
+        allowed: false,
+        code: 'dependency-add',
+      });
+    }
   });
 
   it('explains that new dependencies need a confirmation', () => {
@@ -82,30 +112,35 @@ describe('checkCommand', () => {
     const approved = { approvedDependencies: ['left-pad', '@scope/pkg'] };
 
     it.each([
-      'pnpm add left-pad --ignore-scripts',
-      'pnpm add -D left-pad@1.3.0 --ignore-scripts',
-      'pnpm add @scope/pkg@^2 left-pad --save-exact --ignore-scripts',
+      'pnpm add left-pad --ignore-scripts --ignore-pnpmfile',
+      'pnpm add -D left-pad@1.3.0 --ignore-scripts --ignore-pnpmfile',
+      'pnpm add @scope/pkg@^2 left-pad --save-exact --ignore-scripts --ignore-pnpmfile',
     ])('allows %s', (command) => {
       expect(checkCommand(command, approved)).toMatchObject({ allowed: true });
     });
 
     it.each([
       ['pnpm add left-pad', 'dependency-add'],
-      ['pnpm add other --ignore-scripts', 'dependency-add'],
-      ['pnpm add --ignore-scripts', 'dependency-add'],
-      ['pnpm install left-pad --ignore-scripts', 'dependency-add'],
+      ['pnpm add other --ignore-scripts --ignore-pnpmfile', 'dependency-add'],
+      ['pnpm add --ignore-scripts --ignore-pnpmfile', 'dependency-add'],
+      ['pnpm install left-pad --ignore-scripts --ignore-pnpmfile', 'dependency-add'],
       ['npm i left-pad', 'dependency-add'],
-      ['pnpm add left-pad@github:evil/x --ignore-scripts', 'forbidden-argument'],
-      ['pnpm add left-pad@https://x.io/a.tgz --ignore-scripts', 'forbidden-argument'],
-      ['pnpm add ./local --ignore-scripts', 'forbidden-argument'],
-      ['pnpm add left-pad --ignore-scripts --global', 'forbidden-argument'],
-      ['pnpm add left-pad --ignore-scripts --dir=/tmp', 'forbidden-argument'],
+      ['pnpm add left-pad@github:evil/x --ignore-scripts --ignore-pnpmfile', 'forbidden-argument'],
+      [
+        'pnpm add left-pad@https://x.io/a.tgz --ignore-scripts --ignore-pnpmfile',
+        'forbidden-argument',
+      ],
+      ['pnpm add ./local --ignore-scripts --ignore-pnpmfile', 'forbidden-argument'],
+      ['pnpm add left-pad --ignore-scripts --ignore-pnpmfile --global', 'forbidden-argument'],
+      ['pnpm add left-pad --ignore-scripts --ignore-pnpmfile --dir=/tmp', 'forbidden-argument'],
     ])('denies %s (%s)', (command, code) => {
       expect(checkCommand(command, approved)).toMatchObject({ allowed: false, code });
     });
 
     it('still asks for the approval when none was given', () => {
-      expect(checkCommand('pnpm add left-pad --ignore-scripts', {})).toMatchObject({
+      expect(
+        checkCommand('pnpm add left-pad --ignore-scripts --ignore-pnpmfile', {}),
+      ).toMatchObject({
         allowed: false,
         code: 'dependency-add',
       });

