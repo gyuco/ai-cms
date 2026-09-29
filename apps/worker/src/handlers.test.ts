@@ -48,6 +48,10 @@ describe('release and revision handlers', () => {
 
   it('are registered and check their payload', async () => {
     await expect(handlers['release.run']!({}, {} as Job)).rejects.toThrow(/releaseId/);
+    await expect(handlers['release.rollback']!({}, {} as Job)).rejects.toThrow(/releaseId/);
+    await expect(handlers['release.rollback']!({ releaseId: 'x' }, {} as Job)).rejects.toThrow(
+      /actorUid/,
+    );
     await expect(handlers['changeset.revise']!({}, {} as Job)).rejects.toThrow(/changesetId/);
     await expect(
       handlers['changeset.revise']!(

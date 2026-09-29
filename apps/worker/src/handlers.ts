@@ -12,8 +12,10 @@ import {
   maxAutofixAttempts,
   recordWork,
   RELEASE_JOB,
+  ROLLBACK_JOB,
   runChangesetChecks,
   runRelease,
+  runRollback,
   siteRepoPaths,
   type BuilderClient,
   type JobHandler,
@@ -151,6 +153,22 @@ export function createHandlers(
           ...options.checks,
         },
         // site-prod watches the `current` pointer and restarts by itself (docker/site-prod.sh).
+        healthCheck: createHealthCheck({
+          url: process.env.SITE_PROD_URL || 'http://site-prod:3000/',
+        }),
+        ...options.release,
+      });
+    },
+    // Payload: { releaseId, actorUid }. Puts the previous release back; the database is not restored.
+    [ROLLBACK_JOB]: async (payload) => {
+      const { releaseId, actorUid } = (payload ?? {}) as {
+        releaseId?: unknown;
+        actorUid?: unknown;
+      };
+      if (typeof releaseId !== 'string') throw new Error('payload.releaseId mancante');
+      if (typeof actorUid !== 'number') throw new Error('payload.actorUid mancante');
+      return runRollback(db, releaseId, actorUid, {
+        releasesRoot: process.env.RELEASES_ROOT || '/data/releases',
         healthCheck: createHealthCheck({
           url: process.env.SITE_PROD_URL || 'http://site-prod:3000/',
         }),
