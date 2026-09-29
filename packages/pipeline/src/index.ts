@@ -180,3 +180,4 @@ export {
   type ReleaseHistoryOptions,
   type ReleaseUser,
 } from './release-history.ts';
+export { listOpenChangesets, type OpenChangesetEntry } from './changeset-list.ts';
