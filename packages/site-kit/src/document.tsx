@@ -1,5 +1,12 @@
-import { renderToStaticMarkup } from 'react-dom/server';
+import { createRequire } from 'node:module';
+import type { renderToStaticMarkup as RenderToStaticMarkup } from 'react-dom/server';
 import { PageView, type PageViewProps } from './render/page.tsx';
+
+// Loaded at run time: Next.js rejects a static `react-dom/server` import anywhere in the
+// graph of a route handler, even though this code never runs inside a Server Component.
+const { renderToStaticMarkup } = createRequire(import.meta.url)('react-dom/server') as {
+  renderToStaticMarkup: typeof RenderToStaticMarkup;
+};
 
 export interface DocumentHead {
   lang: string;
