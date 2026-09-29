@@ -151,7 +151,7 @@ function exec(
 }
 
 /** Environment of commands run by the agent: no token, no secrets, nothing from the runner. */
-function commandEnv(): Record<string, string> {
+export function commandEnv(): Record<string, string> {
   return {
     PATH: process.env.PATH ?? '/usr/local/bin:/usr/bin:/bin',
     HOME: tmpdir(),
