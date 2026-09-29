@@ -77,6 +77,25 @@ export interface BuilderRun {
   finishedAt: string | null;
 }
 
+/** `POST /releases` body: builds the artifact of a release from a commit of a changeset clone. */
+export interface BuilderReleaseRequest {
+  releaseId: string;
+  changesetId: string;
+  /** Commit to build; it must exist in the changeset working clone. */
+  commit: string;
+}
+
+/** `POST /releases` response: the artifact is `<releasesRoot>/<releaseId>`. */
+export interface BuilderReleaseResult {
+  releaseId: string;
+  commit: string;
+  /** Next.js standalone server, relative to the artifact directory. */
+  server: string;
+}
+
+/** Name of the file at the root of a release artifact that holds the server path. */
+export const RELEASE_SERVER_FILE = 'SERVER';
+
 /**
  * `<artifactsRoot>/<changesetId>/preview.json`, written by the builder after a successful
  * build and read by the previews service: it always names the newest artifact.

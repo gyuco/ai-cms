@@ -40,7 +40,7 @@ export function queueAutofix(db: Database, changesetId: string): Promise<number 
   );
 }
 
-interface RunOutcome {
+export interface RunOutcome {
   ok: boolean;
   detail?: string;
 }
@@ -78,18 +78,59 @@ async function consumeRun(response: Response): Promise<RunOutcome> {
 }
 
 /**
- * The `changeset.autofix` job (FR-42): hands the errors of the failed checks to the developer
- * agent, which fixes the code in the changeset clone, then runs the checks again. Each round
- * uses one attempt; when they are over the changeset stays in `checks_failed` for a person.
- * Payload: `{ changesetId }`.
+ * One turn of the developer agent on a changeset clone: issues a short-lived session for the
+ * changeset author, asks the agent-runner to run `prompt` and reads the result.
  */
-export function autofixHandler(db: Database, options: AutofixOptions = {}): JobHandler {
+export async function runDevAgent(
+  db: Database,
+  options: AutofixOptions,
+  input: { changeset: typeof schema.changesets.$inferSelect; prompt: string },
+): Promise<RunOutcome> {
   const runnerUrl = (
     options.runnerUrl ??
     process.env.AGENT_RUNNER_URL ??
     'http://agent-runner:8070'
   ).replace(/\/+$/, '');
   const doFetch = options.fetch ?? fetch;
+  const { changeset } = input;
+  const { token } = await issueAgentSession(db, {
+    uid: changeset.authorUid,
+    agent: 'dev-agent',
+    env: 'staging',
+    changesetId: changeset.id,
+    conversationId: changeset.conversationId,
+    ttlMs: (options.runTimeoutMs ?? DEFAULT_RUN_TIMEOUT_MS) + 60_000,
+  });
+  try {
+    const response = await doFetch(`${runnerUrl}/runs`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        token,
+        engine:
+          options.engine ??
+          (process.env.AUTOFIX_ENGINE === 'claude-code' ? 'claude-code' : 'native'),
+        prompt: input.prompt,
+      }),
+      signal: AbortSignal.timeout(options.runTimeoutMs ?? DEFAULT_RUN_TIMEOUT_MS),
+    });
+    return response.ok
+      ? await consumeRun(response)
+      : { ok: false, detail: `l'agent-runner ha risposto ${String(response.status)}` };
+  } catch (error) {
+    return { ok: false, detail: (error as Error).message };
+  } finally {
+    await revokeAgentSession(db, token).catch(() => undefined);
+  }
+}
+
+/**
+ * The `changeset.autofix` job (FR-42): hands the errors of the failed checks to the developer
+ * agent, which fixes the code in the changeset clone, then runs the checks again. Each round
+ * uses one attempt; when they are over the changeset stays in `checks_failed` for a person.
+ * Payload: `{ changesetId }`.
+ */
+export function autofixHandler(db: Database, options: AutofixOptions = {}): JobHandler {
   return async (payload) => {
     const changesetId = (payload as { changesetId?: unknown } | null)?.changesetId;
     if (!isChangesetId(changesetId)) throw new Error('payload.changesetId mancante');
@@ -113,41 +154,15 @@ export function autofixHandler(db: Database, options: AutofixOptions = {}): JobH
       return { exhausted: true, attempts: plan.attempts };
     }
 
-    const { token } = await issueAgentSession(db, {
-      uid: changeset.authorUid,
-      agent: 'dev-agent',
-      env: 'staging',
-      changesetId,
-      conversationId: changeset.conversationId,
-      ttlMs: (options.runTimeoutMs ?? DEFAULT_RUN_TIMEOUT_MS) + 60_000,
+    const outcome = await runDevAgent(db, options, {
+      changeset,
+      prompt: buildAutofixPrompt({
+        title: changeset.title,
+        attempt: plan.attempt,
+        maxAttempts: plan.maxAttempts,
+        failed: plan.failed,
+      }),
     });
-    let outcome: RunOutcome;
-    try {
-      const response = await doFetch(`${runnerUrl}/runs`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          token,
-          engine:
-            options.engine ??
-            (process.env.AUTOFIX_ENGINE === 'claude-code' ? 'claude-code' : 'native'),
-          prompt: buildAutofixPrompt({
-            title: changeset.title,
-            attempt: plan.attempt,
-            maxAttempts: plan.maxAttempts,
-            failed: plan.failed,
-          }),
-        }),
-        signal: AbortSignal.timeout(options.runTimeoutMs ?? DEFAULT_RUN_TIMEOUT_MS),
-      });
-      outcome = response.ok
-        ? await consumeRun(response)
-        : { ok: false, detail: `l'agent-runner ha risposto ${String(response.status)}` };
-    } catch (error) {
-      outcome = { ok: false, detail: (error as Error).message };
-    } finally {
-      await revokeAgentSession(db, token).catch(() => undefined);
-    }
 
     await writeAudit(db, {
       actorUid: changeset.authorUid,

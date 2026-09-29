@@ -17,10 +17,12 @@ COPY . .
 RUN pnpm install --frozen-lockfile --offline --store-dir /pnpm-store --filter @ai-cms/builder...
 # Named volumes inherit this ownership on first mount; /work holds the private copy of each run.
 RUN adduser -D -u 1002 builder \
-  && mkdir -p /data/artifacts /data/workspaces /work \
-  && chown builder:builder /data/artifacts /work
+  && mkdir -p /data/artifacts /data/workspaces /data/releases /work \
+  && chown builder:builder /data/artifacts /work \
+  # Shared with the worker (which owns the `current` pointer): each writes only its own entries.
+  && chmod 1777 /data/releases
 ENV PLATFORM_ROOT=/repo BUILDER_WORK_ROOT=/work ARTIFACTS_ROOT=/data/artifacts \
-  WORKSPACES_ROOT=/data/workspaces PORT=8090
+  WORKSPACES_ROOT=/data/workspaces RELEASES_ROOT=/data/releases PORT=8090
 USER builder
 EXPOSE 8090
 CMD ["apps/builder/node_modules/.bin/tsx", "apps/builder/src/main.ts"]

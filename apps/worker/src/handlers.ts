@@ -4,20 +4,25 @@ import { appDatabaseUrl, readSecret, type Database } from '@ai-cms/db';
 import {
   closeChangeset,
   createBuilderClient,
+  createHealthCheck,
   createChangeset,
   createChangesetDatabase,
   dropChangesetDatabase,
   initSiteRepo,
   maxAutofixAttempts,
   recordWork,
+  RELEASE_JOB,
   runChangesetChecks,
+  runRelease,
   siteRepoPaths,
   type BuilderClient,
   type JobHandler,
+  type ReleaseOptions,
   type RunChecksOptions,
   type SiteRepoPaths,
 } from '@ai-cms/pipeline';
 import { autofixHandler, queueAutofix, type AutofixOptions } from './autofix.ts';
+import { reviseHandler } from './revise.ts';
 import { stagingSyncHandler } from './staging-sync.ts';
 
 export interface HandlerOptions {
@@ -39,6 +44,8 @@ export interface HandlerOptions {
   checks?: Partial<RunChecksOptions>;
   /** Correction rounds after failed checks (FR-42). */
   autofix?: AutofixOptions;
+  /** Overrides for the release job (paths, production database, health check, dump…). */
+  release?: Partial<ReleaseOptions>;
 }
 
 const defaultTemplateDir =
@@ -124,8 +131,36 @@ export function createHandlers(
         checks: Object.fromEntries(result.checks.map((c) => [c.name, c.status])),
       };
     },
+    // Payload: { releaseId }. Rebase, build, migrate, switch, health check, merge (TECHNICAL §8.4).
+    [RELEASE_JOB]: async (payload) => {
+      const releaseId = (payload as { releaseId?: unknown } | null)?.releaseId;
+      if (typeof releaseId !== 'string') throw new Error('payload.releaseId mancante');
+      return runRelease(db, releaseId, {
+        site,
+        releasesRoot: process.env.RELEASES_ROOT || '/data/releases',
+        backupsRoot: process.env.BACKUPS_ROOT || '/data/backups',
+        builder,
+        prodOwnerUrl: () => appDatabaseUrl('prod', 'owner'),
+        checks: {
+          site,
+          builder,
+          appDatabaseUrl: (database) => stagingDatabaseUrl('app', database),
+          ownerDatabaseUrl: (database) => stagingDatabaseUrl('owner', database),
+          stagingAdminUrl,
+          stagingTemplate: options.stagingTemplate,
+          ...options.checks,
+        },
+        // site-prod watches the `current` pointer and restarts by itself (docker/site-prod.sh).
+        healthCheck: createHealthCheck({
+          url: process.env.SITE_PROD_URL || 'http://site-prod:3000/',
+        }),
+        ...options.release,
+      });
+    },
     // Payload: { changesetId }.
     'changeset.autofix': autofixHandler(db, options.autofix),
+    // Payload: { changesetId, reviewId }. A rejection comment goes back to the developer agent.
+    'changeset.revise': reviseHandler(db, options.autofix),
     'changeset.close': async (payload) => {
       const id = changesetIdOf(payload);
       const changeset = await closeChangeset(db, id, site);

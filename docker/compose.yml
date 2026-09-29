@@ -179,6 +179,9 @@ services:
       APP_DB_HOST: postgres-prod
       S3_ENDPOINT: http://s3:8333
     secrets: [pg_core_site_ro, pg_prod_app, revalidate_token]
+    # The worker points `current` at the released artifact; the runtime only reads it.
+    volumes:
+      - releases:/data/releases:ro
     healthcheck: &site-health
       test: ['CMD-SHELL', 'wget -q -O /dev/null http://127.0.0.1:3000/ || exit 1']
       interval: 5s
@@ -241,6 +244,7 @@ services:
     volumes:
       - workspaces:/data/workspaces:ro
       - artifacts:/data/artifacts
+      - releases:/data/releases
     healthcheck:
       test: ['CMD-SHELL', 'wget -q -O /dev/null http://127.0.0.1:8090/health || exit 1']
       interval: 5s

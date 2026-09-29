@@ -263,6 +263,11 @@ export interface ApplyMigrationsResult {
 
 export interface ApplyMigrationsOptions {
   /**
+   * Applies every missing migration in one transaction: either all of them are recorded or
+   * none (a release, TECHNICAL §8.4). By default each migration has its own transaction.
+   */
+  atomic?: boolean;
+  /**
    * Migrations already present in the database when it is not tracked yet (a clone of a
    * database whose schema predates the tracking table): recorded without being run.
    */
@@ -308,13 +313,11 @@ export async function applySiteMigrations(
     }
     const done = new Set(rows.map((row) => row.name));
     const applied: string[] = [];
-    for (const migration of migrations) {
-      if (done.has(migration.name)) continue;
+    const pending = migrations.filter((m) => !done.has(m.name));
+    const run = async (tx: postgres.TransactionSql, migration: SiteMigration) => {
       try {
-        await sql.begin(async (tx) => {
-          await tx.unsafe(migration.sql);
-          await tx`INSERT INTO _cms.migrations (name, hash) VALUES (${migration.name}, ${hashOf(migration.sql)})`;
-        });
+        await tx.unsafe(migration.sql);
+        await tx`INSERT INTO _cms.migrations (name, hash) VALUES (${migration.name}, ${hashOf(migration.sql)})`;
       } catch (error) {
         throw new MigrationError(
           migration.name,
@@ -322,9 +325,70 @@ export async function applySiteMigrations(
         );
       }
       applied.push(migration.name);
+    };
+    if (options.atomic) {
+      try {
+        await sql.begin(async (tx) => {
+          for (const migration of pending) await run(tx, migration);
+        });
+      } catch (error) {
+        applied.length = 0;
+        throw error;
+      }
+    } else {
+      for (const migration of pending) await sql.begin((tx) => run(tx, migration));
     }
     return { applied, alreadyApplied: [...done], needsReset: false };
   } finally {
     await sql.end();
   }
+}
+
+/**
+ * The migrations a database has not applied yet (all of them when it does not track them).
+ * `url` needs only read access to `_cms.migrations`; a migration changed after being applied
+ * counts as pending, and applying it reports `needsReset`.
+ */
+export async function pendingSiteMigrations(
+  url: string,
+  migrations: readonly SiteMigration[],
+): Promise<SiteMigration[]> {
+  const sql = postgres(url, { max: 1, onnotice: () => {} });
+  try {
+    const [{ tracked } = { tracked: false }] = await sql<Array<{ tracked: boolean }>>`
+      SELECT to_regclass('_cms.migrations') IS NOT NULL AS tracked`;
+    if (!tracked) return [...migrations];
+    const rows = await sql<Array<{ name: string; hash: string }>>`
+      SELECT name, hash FROM _cms.migrations`;
+    const done = new Map(rows.map((row) => [row.name, row.hash]));
+    return migrations.filter((m) => done.get(m.name) !== hashOf(m.sql));
+  } finally {
+    await sql.end();
+  }
+}
+
+const TOUCHED_TABLE = new RegExp(
+  String.raw`^(?:ALTER TABLE (?:IF EXISTS )?(?:ONLY )?|DROP TABLE (?:IF EXISTS )?|TRUNCATE (?:TABLE )?(?:ONLY )?|UPDATE (?:ONLY )?|DELETE FROM (?:ONLY )?|INSERT INTO |CREATE (?:UNIQUE )?INDEX (?:CONCURRENTLY )?(?:IF NOT EXISTS )?\S+ ON (?:ONLY )?)(${NAME})`,
+  'i',
+);
+
+/**
+ * Tables an SQL script alters, drops, empties or writes to: the ones a release backs up with
+ * `pg_dump` before applying the migrations (FR-56). New tables are not listed, since they
+ * hold nothing to lose. Names come back without schema when they are in `public`.
+ */
+export function tablesTouchedBy(sql: string): string[] {
+  const tables = new Set<string>();
+  for (const { text } of splitSqlStatements(sql)) {
+    const found = TOUCHED_TABLE.exec(text);
+    if (!found) continue;
+    const name = found[1]!
+      .split('.')
+      .map((part) =>
+        part.startsWith('"') ? part.slice(1, -1).replace(/""/g, '"') : part.toLowerCase(),
+      )
+      .join('.');
+    tables.add(name.startsWith('public.') ? name.slice('public.'.length) : name);
+  }
+  return [...tables].sort();
 }
