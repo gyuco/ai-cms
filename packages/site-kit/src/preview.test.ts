@@ -31,6 +31,20 @@ describe('fetchDraft', () => {
     expect(calls[0]!.init?.cache).toBe('no-store');
   });
 
+  it('asks for a shared node instead of a page', async () => {
+    const { fn, calls } = stub(200, { body: { blocks: [] }, version: 1, published: false });
+    await fetchDraft({
+      env: 'staging',
+      sessionToken: 't',
+      nodePath: 'site.layouts.header',
+      baseUrl: 'http://api:3100',
+      fetch: fn,
+    });
+    expect(calls[0]!.url).toBe(
+      'http://api:3100/_cms/api/preview?node=site.layouts.header&env=staging',
+    );
+  });
+
   it('maps statuses', async () => {
     expect(await fetchDraft({ ...base, fetch: stub(401).fn })).toEqual({ status: 'denied' });
     expect(await fetchDraft({ ...base, fetch: stub(403).fn })).toEqual({ status: 'denied' });

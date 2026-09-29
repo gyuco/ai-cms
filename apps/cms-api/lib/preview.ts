@@ -1,4 +1,5 @@
 import type { NodeTarget, Storage } from '@ai-cms/authz';
+import type { Database } from '@ai-cms/db';
 import { sql } from 'drizzle-orm';
 import { db } from './db.ts';
 import type { Env } from './http.ts';
@@ -12,14 +13,16 @@ export interface LatestPageVersion {
 }
 
 /**
- * Latest version of a page node in `env`, published or not (FR-150). Null when the node does
- * not exist, is not a page, is not part of `env` or has no version there yet.
+ * Latest version of a node of the given kind in `env`, published or not (FR-150). Null when
+ * the node does not exist, has another kind, is not part of `env` or has no version there yet.
  */
-export async function latestPageVersion(
+export async function latestNodeVersion(
   env: Env,
   nodePath: string,
+  kind: string,
+  database: Database = db(),
 ): Promise<LatestPageVersion | null> {
-  const rows = await db().execute<{
+  const rows = await database.execute<{
     path: string;
     kind: string;
     storage: string;
@@ -39,7 +42,7 @@ export async function latestPageVersion(
     LEFT JOIN publications p ON p.node_id = n.id AND p.env = ${env}
     WHERE n.path = ${nodePath}::ltree
       AND n.deleted_at IS NULL
-      AND n.kind = 'page'
+      AND n.kind = ${kind}
       AND n.env IN (${env}, 'both')`);
   const row = rows[0];
   if (!row) return null;
@@ -49,4 +52,9 @@ export async function latestPageVersion(
     version: Number(row.version),
     published: row.published,
   };
+}
+
+/** Latest version of a page node (see `latestNodeVersion`). */
+export function latestPageVersion(env: Env, nodePath: string): Promise<LatestPageVersion | null> {
+  return latestNodeVersion(env, nodePath, 'page');
 }

@@ -9,7 +9,10 @@ export type DraftResult =
   | { status: 'error'; message: string };
 
 export interface DraftRequest {
-  publicPath: string;
+  /** Public path of a page. Ignored when `nodePath` is set. */
+  publicPath?: string;
+  /** A shared node (settings, header, footer, main menu) instead of a page. */
+  nodePath?: string;
   env: SiteEnv;
   sessionToken: string;
   baseUrl?: string;
@@ -18,13 +21,14 @@ export interface DraftRequest {
 }
 
 /**
- * Latest version of a page, published or not, for a signed-in user (FR-150). The site role
+ * Latest version of a page or shared node, published or not, for a signed-in user (FR-150). The site role
  * cannot read `content_versions`, so cms-api checks the session and the permissions and
  * returns the draft. Never cache the result: it depends on who is asking.
  */
 export async function fetchDraft(request: DraftRequest): Promise<DraftResult> {
   const url = new URL(`${request.baseUrl ?? cmsApiUrl()}/_cms/api/preview`);
-  url.searchParams.set('path', request.publicPath);
+  if (request.nodePath) url.searchParams.set('node', request.nodePath);
+  else url.searchParams.set('path', request.publicPath ?? '');
   url.searchParams.set('env', request.env);
   let response: Response;
   try {

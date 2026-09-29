@@ -22,6 +22,7 @@ import {
   publicPathFromNode,
 } from './paths.ts';
 import { fetchDraft } from './preview.ts';
+import { sharedNodeBody } from './shared-node.ts';
 import { unstable_cache } from 'next/cache';
 import { cookies } from 'next/headers';
 import { cache } from 'react';
@@ -62,28 +63,37 @@ function parsed<T>(
   return null;
 }
 
+/** Body of a shared element: the draft for a signed-in user, the published one otherwise. */
+async function sharedBody(nodePath: string): Promise<unknown> {
+  // Reading cookies also opts the route into dynamic rendering.
+  const session = (await cookies()).get(SESSION_COOKIE)?.value;
+  return sharedNodeBody(nodePath, {
+    env,
+    session,
+    published: () => cachedPublished(nodePath, []),
+    onError: (message) => console.error(message),
+  });
+}
+
 /** Site settings, falling back to the seeded defaults when missing or invalid. */
 export const loadSettings = cache(async (): Promise<SiteSettings> => {
-  const entry = await cachedPublished(SETTINGS_NODE, []);
-  if (!entry) return DEFAULT_SETTINGS;
-  return parsed(SETTINGS_NODE, entry.body, parseSiteSettings) ?? DEFAULT_SETTINGS;
+  const body = await sharedBody(SETTINGS_NODE);
+  if (body === null) return DEFAULT_SETTINGS;
+  return parsed(SETTINGS_NODE, body, parseSiteSettings) ?? DEFAULT_SETTINGS;
 });
 
-/** The main menu, when published. */
+/** The main menu (a signed-in user also sees an unpublished version). */
 export const loadMenu = cache(async (): Promise<Menu | null> => {
-  const entry = await cachedPublished(MENU_NODE, []);
-  return entry ? parsed<Menu>(MENU_NODE, entry.body, parseMenu) : null;
+  const body = await sharedBody(MENU_NODE);
+  return body === null ? null : parsed<Menu>(MENU_NODE, body, parseMenu);
 });
 
-/** Shared header and footer, when published. */
+/** Shared header and footer (a signed-in user also sees unpublished versions). */
 export const loadLayouts = cache(async () => {
-  const [header, footer] = await Promise.all([
-    cachedPublished(HEADER_NODE, []),
-    cachedPublished(FOOTER_NODE, []),
-  ]);
+  const [header, footer] = await Promise.all([sharedBody(HEADER_NODE), sharedBody(FOOTER_NODE)]);
   return {
-    header: header ? parsed<Layout>(HEADER_NODE, header.body, parseLayout) : null,
-    footer: footer ? parsed<Layout>(FOOTER_NODE, footer.body, parseLayout) : null,
+    header: header === null ? null : parsed<Layout>(HEADER_NODE, header, parseLayout),
+    footer: footer === null ? null : parsed<Layout>(FOOTER_NODE, footer, parseLayout),
   };
 });
 

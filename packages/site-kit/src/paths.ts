@@ -7,6 +7,13 @@ export const HEADER_NODE = 'site.layouts.header';
 export const FOOTER_NODE = 'site.layouts.footer';
 /** The menu shown in the header of every page. */
 export const MENU_NODE = 'site.menus.main';
+/** Shared nodes a signed-in user may preview before they are published, with their kind. */
+export const SHARED_NODES: Readonly<Record<string, 'layout' | 'menu' | 'setting'>> = {
+  [SETTINGS_NODE]: 'setting',
+  [HEADER_NODE]: 'layout',
+  [FOOTER_NODE]: 'layout',
+  [MENU_NODE]: 'menu',
+};
 
 /** Same rule as the `nodes.name` check constraint. */
 const SEGMENT = /^[a-z0-9][a-z0-9_-]{0,62}$/;
