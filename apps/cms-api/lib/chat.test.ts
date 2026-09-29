@@ -35,8 +35,15 @@ vi.mock('./ai.ts', () => ({
   }),
 }));
 
-const { answerPlan, chatErrorMessage, linesOf, pendingPlan, plans, runChatTurn } =
-  await import('./chat.ts');
+const {
+  answerPlan,
+  chatErrorMessage,
+  linesOf,
+  pendingPlan,
+  pendingPlanPreview,
+  plans,
+  runChatTurn,
+} = await import('./chat.ts');
 
 const owner = { uid: 0, env: 'prod' } as const;
 const page = (title: string) => ({ meta: { title }, blocks: [] });
@@ -116,6 +123,52 @@ describe.skipIf(!testDatabaseUrl)('chat turn (E7.4)', () => {
       { type: 'error', message: 'Conversazione non trovata.' },
       { type: 'done', stopReason: 'error' },
     ]);
+  });
+
+  it('renders the page as the waiting plan would leave it, without writing it (E7.5)', async () => {
+    state.turns = [
+      call('c1', 'propose_plan', {
+        operations: [
+          {
+            op: 'createPage',
+            parentPath: '/site/pages',
+            name: 'anteprima',
+            body: {
+              meta: { title: 'Anteprima' },
+              blocks: [{ id: 'h1', type: 'heading', level: 1, text: 'Titolo <nuovo>' }],
+            },
+          },
+        ],
+      }),
+      say('Pronto.'),
+    ];
+    const id = conversationOf(await turn({ message: 'Crea la pagina anteprima' }));
+
+    const preview = await pendingPlanPreview(owner, id, '/site/pages/anteprima');
+    expect(preview).toMatchObject({
+      path: '/site/pages/anteprima',
+      created: true,
+      removed: [],
+    });
+    expect(preview?.added).toEqual(['h1']);
+    expect(preview?.html).toContain('data-cms-block="h1"');
+    // Text is escaped, as on the site.
+    expect(preview?.html).toContain('Titolo &lt;nuovo&gt;');
+    // A page the plan does not touch has no preview.
+    expect(await pendingPlanPreview(owner, id, '/site/pages/index')).toBeNull();
+    // Nothing was written.
+    await expect(
+      getContent(
+        database.db,
+        { uid: 0, username: 'root', status: 'active' },
+        'prod',
+        '/site/pages/anteprima',
+      ),
+    ).rejects.toThrow();
+    // Another user cannot see it.
+    await expect(
+      pendingPlanPreview({ uid: 99, env: 'prod' }, id, '/site/pages/anteprima'),
+    ).rejects.toThrow();
   });
 
   it('shows the plan the agent proposes and applies it only on "Conferma"', async () => {

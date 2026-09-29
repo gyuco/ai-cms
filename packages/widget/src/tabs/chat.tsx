@@ -2,6 +2,7 @@ import { useEffect, useReducer, useRef, useState } from 'preact/hooks';
 import { ApiError } from '../api.ts';
 import { chatReducer, EMPTY_CHAT, type ChatMessage, type SavedLine } from '../chat/state.ts';
 import { streamChat, type PlanView } from '../chat/stream.ts';
+import { usePlanPreview, type PreviewState } from '../chat/use-preview.ts';
 import { formatDateTime, plural } from '../format.ts';
 import { selection, useSelection } from '../selection.ts';
 import { useWidget } from '../widget-context.ts';
@@ -61,13 +62,45 @@ function Bubble({ message }: { message: ChatMessage }) {
   );
 }
 
+function PreviewNote({ preview }: { preview: PreviewState }) {
+  if (preview.status === 'loading') return <p class="chat-preview-note">Preparo l’anteprima…</p>;
+  if (preview.status === 'error') {
+    return (
+      <p class="status status-warning" role="alert">
+        Anteprima non disponibile: {preview.message}
+      </p>
+    );
+  }
+  if (preview.status !== 'shown') return null;
+  return (
+    <div class="chat-preview-note">
+      <p>
+        Anteprima sulla pagina: <span class="chat-preview-added">verde = aggiunto</span>,{' '}
+        <span class="chat-preview-modified">giallo = modificato</span>.
+      </p>
+      {preview.removed.length > 0 && (
+        <p>
+          {plural(preview.removed.length, 'blocco tolto', 'blocchi tolti')} (non visibili):{' '}
+          {preview.removed.map((block) => block.type).join(', ')}.
+        </p>
+      )}
+    </div>
+  );
+}
+
 function PlanCard({
   plan,
   busy,
+  preview,
+  previewOn,
+  onPreviewToggle,
   onAnswer,
 }: {
   plan: PlanView;
   busy: boolean;
+  preview: PreviewState;
+  previewOn: boolean;
+  onPreviewToggle: (on: boolean) => void;
   onAnswer: (action: 'confirm' | 'cancel', confirmDestructive: boolean) => void;
 }) {
   return (
@@ -92,6 +125,17 @@ function PlanCard({
           ))}
         </ul>
       )}
+      {preview.status !== 'elsewhere' || previewOn ? (
+        <label class="chat-preview-toggle">
+          <input
+            type="checkbox"
+            checked={previewOn}
+            onChange={(event) => onPreviewToggle((event.target as HTMLInputElement).checked)}
+          />{' '}
+          Mostra l’anteprima sulla pagina
+        </label>
+      ) : null}
+      <PreviewNote preview={preview} />
       {plan.destructive && (
         <p class="status status-warning" role="alert">
           Questo piano elimina o sovrascrive dei contenuti: controlla bene prima di confermare.
@@ -143,6 +187,8 @@ export function ChatTab() {
 
   const path = context.node?.path ?? null;
   const busy = state.phase !== 'idle';
+  const [previewOn, setPreviewOn] = useState(true);
+  const preview = usePlanPreview(api, state.plan, state.conversationId, path, previewOn);
 
   const history = useLoad(
     () =>
@@ -303,7 +349,16 @@ export function ChatTab() {
         {state.messages.map((message) => (
           <Bubble key={message.id} message={message} />
         ))}
-        {state.plan && <PlanCard plan={state.plan} busy={answer.busy || busy} onAnswer={respond} />}
+        {state.plan && (
+          <PlanCard
+            plan={state.plan}
+            busy={answer.busy || busy}
+            preview={preview}
+            previewOn={previewOn}
+            onPreviewToggle={setPreviewOn}
+            onAnswer={respond}
+          />
+        )}
       </div>
 
       <p class="chat-phase" role="status" aria-live="polite">

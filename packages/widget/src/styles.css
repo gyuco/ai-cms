@@ -1336,3 +1336,26 @@ pre code {
   outline: 2px solid var(--focus);
   outline-offset: 1px;
 }
+
+.chat-preview-toggle {
+  font-size: 12px;
+}
+
+.chat-preview-note {
+  margin: 0;
+  font-size: 12px;
+}
+
+.chat-preview-note p {
+  margin: 0 0 4px;
+}
+
+.chat-preview-added {
+  color: #1a7f37;
+  font-weight: 600;
+}
+
+.chat-preview-modified {
+  color: #9a6700;
+  font-weight: 600;
+}

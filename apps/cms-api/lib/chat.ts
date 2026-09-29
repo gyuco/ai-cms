@@ -26,10 +26,11 @@ import {
   type Conversation,
   type ResolvedAgentSession,
 } from '@ai-cms/ai-config';
-import { outline } from '@ai-cms/content';
+import { outline, parsePageBody } from '@ai-cms/content';
 import { getContent, PlanError, planSchema } from '@ai-cms/content/service';
 import { AuthzError } from '@ai-cms/authz';
 import { NotFoundError } from '@ai-cms/tree';
+import { renderMainMarkup } from '@ai-cms/site-kit/document';
 import { z } from 'zod';
 import { assetStorage } from './assets.ts';
 import { db } from './db.ts';
@@ -454,6 +455,52 @@ export async function pendingPlan(
       }
       throw err;
     }
+  });
+}
+
+/** A page as the plan would leave it, for the in-place preview of the widget (E7.5). */
+export interface PlanPagePreview {
+  path: string;
+  created: boolean;
+  /** The markup inside `<main>`, as the site renders it. */
+  html: string;
+  /** Blocks of `html` the plan adds or edits, by `data-cms-block`. */
+  added: string[];
+  modified: string[];
+  /** Blocks the plan takes away: they are not in `html`, so the widget only lists them. */
+  removed: { id: string; type: string }[];
+}
+
+/**
+ * The page `path` as the plan waiting in the conversation would leave it, rendered like the
+ * site does. The plan is dry-run again, so nothing is written and the preview is never older
+ * than the tree. `null` when the plan does not touch that page.
+ */
+export async function pendingPlanPreview(
+  owner: ChatOwner,
+  conversationId: string,
+  path: string,
+): Promise<PlanPagePreview | null> {
+  const { session } = await requirePendingPlan(owner, conversationId);
+  return withAgentSession(owner, conversationId, async ({ principal }) => {
+    const result = await previewContentPlan(db(), principal, owner.env, session, {
+      conversationId,
+      viaAgent: AGENT,
+      validateRendered: renderValidator(db(), principal, owner.env),
+    });
+    const page = (result.preview ?? []).find((entry) => entry.path === path);
+    if (!page || page.kind !== 'page') return null;
+    const body = parsePageBody(page.body);
+    // A body that is not a valid page is shown only in the plan card, never as markup.
+    if (!body.ok) return null;
+    return {
+      path: page.path,
+      created: page.created,
+      html: renderMainMarkup(body.value),
+      added: page.diff.blocks.added.map((block) => block.id),
+      modified: page.diff.blocks.modified.map((block) => block.id),
+      removed: page.diff.blocks.removed.map((block) => ({ id: block.id, type: block.type })),
+    };
   });
 }
 
