@@ -99,6 +99,13 @@
       "when": 1790661835942,
       "tag": "0013_agent_dependency_approvals",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1790664566472,
+      "tag": "0014_changeset_autofix",
+      "breakpoints": true
     }
   ]
 }
