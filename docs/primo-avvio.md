@@ -123,6 +123,14 @@ Le funzioni dinamiche (codice, API, migrazioni) si sviluppano in **staging**, in
 isolato, con un elenco chiuso di comandi; `pnpm add` è consentito solo per i pacchetti che
 l'utente ha approvato in chat.
 
+Per lavorarci dal widget, in staging apri la scheda **Chat** e passa da *Contenuti* a
+*Sviluppo*: scrivi il titolo di una nuova modifica e premi **Crea** (il worker prepara il
+changeset in pochi secondi), oppure scegli una modifica aperta dall'elenco. Poi descrivi cosa
+costruire; l'agente scrive il codice nella copia del sito e a fine turno salva un commit. Se
+gli serve un pacchetto npm, apri **Approva nuovi pacchetti**, scrivi il nome (senza versione né
+indirizzi) e premi **Approva**: da quel momento potrà aggiungerlo. Controlli, approvazione e
+pubblicazione restano nella scheda **Sviluppo**.
+
 I controlli automatici (build, test, regole di sicurezza, migrazioni distruttive) girano nel
 worker. Se falliscono, gli errori tornano all'agente per **al massimo 3 tentativi** di
 correzione automatica; lo stato è visibile nella scheda **Sviluppo**.
@@ -154,12 +162,12 @@ Questi limiti valgono per lo stato attuale del codice:
 - **Chat con abbonamento**: non ancora disponibile (vedi passo 4).
 - **Piani in attesa**: sono tenuti in memoria di `cms-api` e scadono dopo 30 minuti; un
   riavvio li perde e l'agente li riproporrà.
-- **Agente sviluppatore dal widget**: la scheda Chat parla con l'agente contenuti. Gli
-  strumenti, il runner, i controlli, la correzione automatica e la release sono presenti,
-  ma non ho trovato nel codice un percorso dalla Chat che apra un changeset e avvii una
-  conversazione con l'agente sviluppatore.
-- **`pnpm add`**: resta bloccato finché la chat non registra la conferma dell'utente sui
-  pacchetti (`approvedDependencies`), che oggi nessun flusso imposta.
+- **Chat con l'agente sviluppatore**: il ruolo `dev-agent` deve avere una connessione con
+  chiave API (o un abbonamento collegato, vedi passo 4) nella scheda AI. Una modifica accetta
+  messaggi finché è in lavorazione o con controlli falliti; dopo "pronta" l'agente non la
+  cambia più (un rifiuto con commento la riapre).
+- **Pacchetti approvati**: l'approvazione vale per la conversazione, non per il singolo
+  comando; non si può ritirare dal widget.
 - **Rollback e git**: non tocca `main`, il tag `release-<n>` né `staging`; la release
   successiva riparte da un `main` che contiene ancora le modifiche annullate.
 - **Anteprima dei blocchi tolti**: compaiono solo per tipo nel pannello del piano, non sulla
