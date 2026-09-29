@@ -11,6 +11,8 @@
     "build:cli": "esbuild cli/admin.ts --bundle --platform=node --format=esm --target=node22 --outfile=dist/admin.mjs --external:@node-rs/argon2 --banner:js=\"import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);\""
   },
   "dependencies": {
+    "@ai-cms/agents": "workspace:*",
+    "@ai-cms/ai": "workspace:*",
     "@ai-cms/ai-config": "workspace:*",
     "@ai-cms/audit": "workspace:*",
     "@ai-cms/auth": "workspace:*",
@@ -26,7 +28,8 @@
     "drizzle-orm": "^0.45.3",
     "next": "^16.3.6",
     "react": "^19.3.0",
-    "react-dom": "^19.3.0"
+    "react-dom": "^19.3.0",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@types/react": "^19.3.0",

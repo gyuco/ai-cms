@@ -31,3 +31,15 @@ export {
   requiresConfirmation,
   type PlanSession,
 } from './content-agent/plan.ts';
+export {
+  describeOperation,
+  encodeSse,
+  isBlockedResult,
+  PLAN_TTL_MS,
+  PlanStore,
+  toolLabel,
+  toPlanView,
+  type ChatStreamEvent,
+  type PlanPageView,
+  type PlanView,
+} from './content-agent/chat.ts';

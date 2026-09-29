@@ -82,6 +82,12 @@ importers:
 
   apps/cms-api:
     dependencies:
+      '@ai-cms/agents':
+        specifier: workspace:*
+        version: link:../../packages/agents
+      '@ai-cms/ai':
+        specifier: workspace:*
+        version: link:../../packages/ai
       '@ai-cms/ai-config':
         specifier: workspace:*
         version: link:../../packages/ai-config
@@ -130,6 +136,9 @@ importers:
       react-dom:
         specifier: ^19.3.0
         version: 19.3.0(react@19.3.0)
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
     devDependencies:
       '@types/react':
         specifier: ^19.3.0

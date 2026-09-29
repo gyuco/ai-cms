@@ -6,7 +6,7 @@
  */
 import type { Env } from '@ai-cms/authz';
 import { schema, type Database } from '@ai-cms/db';
-import { asc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq } from 'drizzle-orm';
 
 export type ConversationMessageRole = (typeof schema.messageRoles)[number];
 
@@ -56,4 +56,115 @@ export async function getConversation(db: Database, id: string): Promise<Convers
       createdAt: m.createdAt,
     })),
   };
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export interface ConversationSummary {
+  id: string;
+  title: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface OpenConversationInput {
+  uid: number;
+  env: Env;
+  agent: string;
+  nodeId: string | null;
+  title: string | null;
+}
+
+/** A new conversation, owned by `uid`. The title is the first thing the user asked (FR-08). */
+export async function createConversation(
+  db: Database,
+  input: OpenConversationInput,
+): Promise<string> {
+  const [row] = await db
+    .insert(schema.conversations)
+    .values({
+      uid: input.uid,
+      env: input.env,
+      agent: input.agent,
+      nodeId: input.nodeId,
+      title: input.title,
+    })
+    .returning({ id: schema.conversations.id });
+  return row!.id;
+}
+
+/**
+ * A conversation of `uid` in `env`, or null. Conversations are private to who started them:
+ * an id of somebody else's (or of the other environment) looks like an unknown one.
+ */
+export async function getOwnConversation(
+  db: Database,
+  id: string,
+  owner: { uid: number; env: Env },
+): Promise<Conversation | null> {
+  if (!UUID.test(id)) return null;
+  const conversation = await getConversation(db, id);
+  if (!conversation || conversation.uid !== owner.uid || conversation.env !== owner.env) {
+    return null;
+  }
+  return conversation;
+}
+
+/** The conversations of `uid` started from a node in `env`, most recently active first. */
+export async function listNodeConversations(
+  db: Database,
+  owner: { uid: number; env: Env },
+  nodeId: string,
+  limit = 30,
+): Promise<ConversationSummary[]> {
+  return db
+    .select({
+      id: schema.conversations.id,
+      title: schema.conversations.title,
+      createdAt: schema.conversations.createdAt,
+      updatedAt: schema.conversations.updatedAt,
+    })
+    .from(schema.conversations)
+    .where(
+      and(
+        eq(schema.conversations.uid, owner.uid),
+        eq(schema.conversations.env, owner.env),
+        eq(schema.conversations.nodeId, nodeId),
+      ),
+    )
+    .orderBy(desc(schema.conversations.updatedAt))
+    .limit(limit);
+}
+
+export interface NewMessage {
+  role: ConversationMessageRole;
+  content: unknown;
+}
+
+/** Appends messages in order and marks the conversation as active now. */
+export async function appendMessages(
+  db: Database,
+  conversationId: string,
+  newMessages: readonly NewMessage[],
+): Promise<void> {
+  if (newMessages.length === 0) return;
+  await db
+    .insert(schema.messages)
+    .values(newMessages.map((m) => ({ conversationId, role: m.role, content: m.content })));
+  await db
+    .update(schema.conversations)
+    .set({ updatedAt: new Date() })
+    .where(eq(schema.conversations.id, conversationId));
+}
+
+/** Ties a conversation to the page it started from. */
+export async function setConversationNode(
+  db: Database,
+  conversationId: string,
+  nodeId: string,
+): Promise<void> {
+  await db
+    .update(schema.conversations)
+    .set({ nodeId })
+    .where(eq(schema.conversations.id, conversationId));
 }
